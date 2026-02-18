@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tuffy Reviews</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <h1 class="logo">Tuffy Reviews</h1>
+    <p class="tagline">Product insights at a glance</p>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" id="tab-reviews" class="tab active" data-tab="reviews" role="tab" aria-selected="true">Reviews</button>
+    <button type="button" id="tab-price" class="tab" data-tab="price" role="tab" aria-selected="false">Price</button>
+    <button type="button" id="tab-sellers" class="tab" data-tab="sellers" role="tab" aria-selected="false">Sellers</button>
+    <button type="button" id="tab-trust" class="tab" data-tab="trust" role="tab" aria-selected="false">Trust</button>
+  </nav>
+
+  <main class="panel-container">
+    <section id="panel-reviews" class="panel active" role="tabpanel" aria-labelledby="tab-reviews">
+      <h2>Reviews</h2>
+      <p class="placeholder">Aggregated review score, pros & cons, and external reviewer references will appear here.</p>
+    </section>
+    <section id="panel-price" class="panel" role="tabpanel" aria-labelledby="tab-price" hidden>
+      <h2>Price</h2>
+      <p class="placeholder">Price history, lowest/avg/highest, and savings indicator will appear here.</p>
+    </section>
+    <section id="panel-sellers" class="panel" role="tabpanel" aria-labelledby="tab-sellers" hidden>
+      <h2>Sellers</h2>
+      <p class="placeholder">Comparison across Amazon, Best Buy, Walmart, Target and seller links will appear here.</p>
+    </section>
+    <section id="panel-trust" class="panel" role="tabpanel" aria-labelledby="tab-trust" hidden>
+      <h2>Trust</h2>
+      <p class="placeholder">Trust score, rating breakdown, and review pattern analysis will appear here.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p class="page-status">Visit a product page on Amazon, Walmart, Target, or Best Buy to see insights.</p>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
