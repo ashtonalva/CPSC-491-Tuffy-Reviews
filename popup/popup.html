@@ -26,7 +26,39 @@
     </section>
     <section id="panel-price" class="panel" role="tabpanel" aria-labelledby="tab-price" hidden>
       <h2>Price</h2>
-      <p class="placeholder">Price history, lowest/avg/highest, and savings indicator will appear here.</p>
+      <div class="price-current">
+        <span class="price-label">Current price</span>
+        <span class="price-value" id="current-price">$--</span>
+      </div>
+      <div class="price-stats">
+        <div class="stat">
+          <span class="stat-label">Lowest</span>
+          <span class="stat-value" id="price-lowest">$--</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Average</span>
+          <span class="stat-value" id="price-average">$--</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Highest</span>
+          <span class="stat-value" id="price-highest">$--</span>
+        </div>
+      </div>
+      <div class="price-chart-wrap">
+        <p class="price-chart-placeholder">Chart will go here</p>
+      </div>
+      <div class="price-savings">
+        <span class="savings-label">Savings</span>
+        <span class="savings-value" id="savings-value">--</span>
+      </div>
+      <div class="price-period">
+        <span class="period-label">Period</span>
+        <div class="period-btns">
+          <button type="button" class="period-btn" data-days="30">30 days</button>
+          <button type="button" class="period-btn active" data-days="90">90 days</button>
+          <button type="button" class="period-btn" data-days="180">6 months</button>
+        </div>
+      </div>
     </section>
     <section id="panel-sellers" class="panel" role="tabpanel" aria-labelledby="tab-sellers" hidden>
       <h2>Sellers</h2>
