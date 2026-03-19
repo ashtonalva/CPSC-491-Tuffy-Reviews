@@ -5,13 +5,13 @@
   "description": "Shopping assistant: aggregated reviews, price history, seller comparison, and trust scores on product pages.",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
     "https://www.amazon.com/*",
     "https://www.walmart.com/*",
-    "https://www.target.com/*",
-    "https://www.bestbuy.com/*"
+    "https://www.ebay.com/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",
@@ -22,8 +22,7 @@
       "matches": [
         "https://www.amazon.com/*",
         "https://www.walmart.com/*",
-        "https://www.target.com/*",
-        "https://www.bestbuy.com/*"
+        "https://www.ebay.com/*"
       ],
       "js": ["content/content.js"],
       "css": ["content/content.css"],

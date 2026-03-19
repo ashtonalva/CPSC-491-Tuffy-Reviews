@@ -86,6 +86,43 @@ body {
   background: var(--border);
 }
 
+/* ── Reviews dropdowns ────────────────────────────────────────────────────── */
+.reviews-dropdown {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+/* hide native marker */
+.reviews-dropdown > summary { list-style: none; }
+.reviews-dropdown > summary::-webkit-details-marker { display: none; }
+
+.reviews-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  background: var(--bg);
+  user-select: none;
+}
+.reviews-dropdown-header:hover { background: #ebedf0; }
+
+.reviews-dropdown-icon {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  line-height: 1;
+}
+.reviews-dropdown[open] .reviews-dropdown-icon { transform: rotate(180deg); }
+
+.reviews-dropdown-body {
+  padding: 0 12px;
+  background: var(--surface);
+}
+
 /* Review cards */
 .review-card { padding: 10px 0; border-bottom: 1px solid var(--border); }
 .review-card:last-child { border-bottom: none; }

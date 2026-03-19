@@ -72,15 +72,21 @@
       </article>`;
   }
 
-  function sectionHtml(label, reviews, source) {
+  function sectionHtml(label, reviews, source, open = false) {
     const sourceTag = source === 'mock'
       ? ' <span class="source-mock">mock data</span>' : '';
-    const header = `
-      <div class="reviews-header">
-        <span class="reviews-source">${label}${sourceTag}</span>
-        <span class="reviews-count">${reviews.length} shown</span>
-      </div>`;
-    return header + reviews.map(reviewCardHtml).join('');
+    const openAttr = open ? ' open' : '';
+    return `
+      <details class="reviews-dropdown"${openAttr}>
+        <summary class="reviews-dropdown-header">
+          <span class="reviews-source">${label}${sourceTag}</span>
+          <span class="reviews-count">${reviews.length} shown</span>
+          <span class="reviews-dropdown-icon">▾</span>
+        </summary>
+        <div class="reviews-dropdown-body">
+          ${reviews.map(reviewCardHtml).join('')}
+        </div>
+      </details>`;
   }
 
   async function getActiveTab() {
@@ -154,7 +160,7 @@
         <p class="placeholder">No reviews found on this page.</p>
         <p class="placeholder" style="margin-top:6px;font-size:11px;">Make sure you're on a product detail page.</p>`);
     } else {
-      setPrimary(sectionHtml(`Top reviews · ${label}`, reviews, 'api'));
+      setPrimary(sectionHtml(`Top reviews · ${label}`, reviews, 'api', true));
     }
 
     // 2 — fetch cross-site reviews in the background (only on Amazon for now)
