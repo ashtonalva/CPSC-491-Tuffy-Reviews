@@ -324,10 +324,7 @@ function renderSellersTab(sellerCount, buyBoxSeller, historyPoints) {
   const days = getSelectedDays();
   let points;
   const sourceNote = document.getElementById('seller-source-note');
-
-  // ------------------------------
   // 1 — Resolve real or mock data
-  // ------------------------------
   if (historyPoints && historyPoints.length) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
