@@ -1,24 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tuffy Reviews</title>
-  <link rel="stylesheet" href="popup.css" />
-</head>
-<body>
-  <header class="header">
-    <h1 class="logo">Tuffy Reviews</h1>
-    <p class="tagline">Product insights at a glance</p>
-  </header>
+   <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Tuffy Reviews</title>
+      <link rel="stylesheet" href="popup.css" />
+   </head>
+   <body>
+      <header class="header">
+         <h1 class="logo">Tuffy Reviews</h1>
+         <p class="tagline">Product insights at a glance</p>
+      </header>
 
-  <nav class="tabs" role="tablist">
-    <button type="button" id="tab-reviews" class="tab active" data-tab="reviews" role="tab" aria-selected="true">Reviews</button>
-    <button type="button" id="tab-price" class="tab" data-tab="price" role="tab" aria-selected="false">Price</button>
-    <button type="button" id="tab-sellers" class="tab" data-tab="sellers" role="tab" aria-selected="false">Sellers</button>
-    <button type="button" id="tab-trust" class="tab" data-tab="trust" role="tab" aria-selected="false">Trust</button>
-  </nav>
+      <nav class="tabs" role="tablist">
+         <button
+            type="button"
+            id="tab-reviews"
+            class="tab active"
+            data-tab="reviews"
+            role="tab"
+            aria-selected="true"
+         >
+            Reviews
+         </button>
+         <button
+            type="button"
+            id="tab-price"
+            class="tab"
+            data-tab="price"
+            role="tab"
+            aria-selected="false"
+         >
+            Price
+         </button>
+         <button
+            type="button"
+            id="tab-sellers"
+            class="tab"
+            data-tab="sellers"
+            role="tab"
+            aria-selected="false"
+         >
+            Sellers
+         </button>
+         <button
+            type="button"
+            id="tab-trust"
+            class="tab"
+            data-tab="trust"
+            role="tab"
+            aria-selected="false"
+         >
+            Trust
+         </button>
+      </nav>
 
+<<<<<<< Updated upstream
   <main class="panel-container">
     <section id="panel-reviews" class="panel active" role="tabpanel" aria-labelledby="tab-reviews">
       <h2>Reviews</h2>
@@ -37,11 +74,135 @@
       <p class="placeholder">Trust score, rating breakdown, and review pattern analysis will appear here.</p>
     </section>
   </main>
+=======
+      <main class="panel-container">
+         <!-- Reviews: populated dynamically by popup.js → loadReviews() -->
+         <section
+            id="panel-reviews"
+            class="panel active"
+            role="tabpanel"
+            aria-labelledby="tab-reviews"
+         >
+            <p class="placeholder">Loading reviews…</p>
+         </section>
+>>>>>>> Stashed changes
 
-  <footer class="footer">
-    <p class="page-status">Visit a product page on Amazon, Walmart, Target, or Best Buy to see insights.</p>
-  </footer>
+         <!-- Price -->
+         <section
+            id="panel-price"
+            class="panel"
+            role="tabpanel"
+            aria-labelledby="tab-price"
+            hidden
+         >
+            <!-- Current price (real, from page) -->
+            <div class="price-current">
+               <span class="price-label">Current price</span>
+               <span class="price-value" id="current-price">$--</span>
+            </div>
 
-  <script src="popup.js"></script>
-</body>
+            <!-- Original / list price — only shown when item is on sale -->
+            <div
+               class="price-original-row"
+               id="original-price-row"
+               style="display: none"
+            >
+               <span class="price-label">List price</span>
+               <span class="price-original" id="original-price"></span>
+            </div>
+
+            <!-- Stat boxes (from mock history anchored to real price) -->
+            <div class="price-stats">
+               <div class="stat">
+                  <span class="stat-label">Lowest</span>
+                  <span class="stat-value" id="price-lowest">$--</span>
+               </div>
+               <div class="stat">
+                  <span class="stat-label">Average</span>
+                  <span class="stat-value" id="price-average">$--</span>
+               </div>
+               <div class="stat">
+                  <span class="stat-label">Highest</span>
+                  <span class="stat-value" id="price-highest">$--</span>
+               </div>
+            </div>
+
+            <!-- Chart -->
+            <div class="price-chart-wrap">
+               <canvas
+                  id="price-chart"
+                  width="296"
+                  height="110"
+                  aria-label="Price history chart"
+                  role="img"
+               ></canvas>
+            </div>
+
+            <!-- Savings vs average -->
+            <div class="price-savings">
+               <span class="savings-label">vs. avg</span>
+               <span class="savings-value" id="savings-value">--</span>
+            </div>
+
+            <!-- Period selector -->
+            <div class="price-period">
+               <span class="period-label">Period</span>
+               <div class="period-btns">
+                  <button type="button" class="period-btn" data-days="30">
+                     30 days
+                  </button>
+                  <button
+                     type="button"
+                     class="period-btn active"
+                     data-days="90"
+                  >
+                     90 days
+                  </button>
+                  <button type="button" class="period-btn" data-days="180">
+                     6 months
+                  </button>
+               </div>
+            </div>
+         </section>
+
+         <!-- Sellers -->
+         <section
+            id="panel-sellers"
+            class="panel"
+            role="tabpanel"
+            aria-labelledby="tab-sellers"
+            hidden
+         >
+            <h2>Sellers</h2>
+            <p class="placeholder">
+               Comparison across Amazon, Best Buy, Walmart, and Target will
+               appear here.
+            </p>
+         </section>
+
+         <!-- Trust -->
+         <section
+            id="panel-trust"
+            class="panel"
+            role="tabpanel"
+            aria-labelledby="tab-trust"
+            hidden
+         >
+            <h2>Trust</h2>
+            <p class="placeholder">
+               Trust score, rating breakdown, and review topic analysis will
+               appear here.
+            </p>
+         </section>
+      </main>
+
+      <footer class="footer">
+         <p class="page-status">
+            Visit a product page on Amazon, Walmart, Target, or Best Buy to see
+            insights.
+         </p>
+      </footer>
+
+      <script src="popup.js"></script>
+   </body>
 </html>

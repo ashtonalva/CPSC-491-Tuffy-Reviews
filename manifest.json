@@ -1,36 +1,33 @@
 {
-  "manifest_version": 3,
-  "name": "Tuffy Reviews",
-  "version": "0.1.0",
-  "description": "Shopping assistant: aggregated reviews, price history, seller comparison, and trust scores on product pages.",
-  "permissions": [
-    "activeTab",
-    "storage"
-  ],
-  "host_permissions": [
-    "https://www.amazon.com/*",
-    "https://www.walmart.com/*",
-    "https://www.target.com/*",
-    "https://www.bestbuy.com/*"
-  ],
-  "action": {
-    "default_popup": "popup/popup.html",
-    "default_title": "Tuffy Reviews"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://www.amazon.com/*",
-        "https://www.walmart.com/*",
-        "https://www.target.com/*",
-        "https://www.bestbuy.com/*"
-      ],
-      "js": ["content/content.js"],
-      "css": ["content/content.css"],
-      "run_at": "document_idle"
-    }
-  ],
-  "background": {
-    "service_worker": "background/background.js"
-  }
+   "manifest_version": 3,
+   "name": "Tuffy Reviews",
+   "version": "0.1.0",
+   "description": "Shopping assistant: aggregated reviews, price history, seller comparison, and trust scores on product pages.",
+   "permissions": ["activeTab", "storage", "tabs"],
+   "host_permissions": [
+      "https://www.amazon.com/*",
+      "https://www.walmart.com/*",
+      "https://www.target.com/*",
+      "https://www.bestbuy.com/*"
+   ],
+   "action": {
+      "default_popup": "popup/popup.html",
+      "default_title": "Tuffy Reviews"
+   },
+   "content_scripts": [
+      {
+         "matches": [
+            "https://www.amazon.com/*",
+            "https://www.walmart.com/*",
+            "https://www.target.com/*",
+            "https://www.bestbuy.com/*"
+         ],
+         "js": ["content/content.js"],
+         "css": ["content/content.css"],
+         "run_at": "document_idle"
+      }
+   ],
+   "background": {
+      "service_worker": "background/background.js"
+   }
 }

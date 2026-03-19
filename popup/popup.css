@@ -1,5 +1,4 @@
-/* Tuffy Reviews – Popup styles
-   Keep layout compact and clear for a small extension window. */
+/* Tuffy Reviews – Popup styles */
 
 :root {
   --bg: #f8f9fa;
@@ -8,45 +7,41 @@
   --text: #1a1a1a;
   --text-muted: #5c6370;
   --accent: #bf5700;
-  --accent-hover: #9b4600;
   --radius: 8px;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   width: 360px;
   min-height: 320px;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
   line-height: 1.4;
   color: var(--text);
   background: var(--bg);
 }
 
-.header {
-  padding: 12px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.header { padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo   { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+.tagline { margin: 4px 0 0; font-size: 0.8rem; color: var(--text-muted); }
 
-.logo {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--accent);
-}
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 2px; padding: 8px 8px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+.tab { flex: 1; padding: 8px 6px; font-size: 12px; font-weight: 500; color: var(--text-muted); background: transparent; border: none; border-radius: var(--radius) var(--radius) 0 0; cursor: pointer; }
+.tab:hover { color: var(--text); background: var(--bg); }
+.tab.active { color: var(--accent); background: var(--bg); border-bottom: 2px solid var(--accent); }
 
-.tagline {
-  margin: 4px 0 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
+/* ── Panels ───────────────────────────────────────────────────────────────── */
+.panel-container { padding: 16px; background: var(--surface); min-height: 200px; }
+.panel { display: none; }
+.panel.active { display: block; }
+.panel h2 { margin: 0 0 8px; font-size: 1rem; font-weight: 600; }
+.placeholder { margin: 0; font-size: 13px; color: var(--text-muted); }
 
+<<<<<<< Updated upstream
 .tabs {
   display: flex;
   gap: 2px;
@@ -107,11 +102,144 @@ body {
 .footer {
   padding: 10px 16px;
   background: var(--surface);
+=======
+/* ── Collapsible review sections ──────────────────────────────────────────── */
+.review-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.review-section__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--bg);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.review-section__toggle:hover { background: #eef0f2; }
+
+.review-section__label { font-weight: 600; flex: 1; }
+.review-section__count { font-size: 11px; color: var(--text-muted); }
+
+.review-section__chevron {
+  font-size: 16px;
+  color: var(--text-muted);
+  transform: rotate(0deg);
+  transition: transform 0.15s ease;
+  line-height: 1;
+}
+
+.review-section__toggle.open .review-section__chevron { transform: rotate(90deg); }
+
+.review-section__body {
+  padding: 4px 12px 8px;
+>>>>>>> Stashed changes
   border-top: 1px solid var(--border);
 }
 
-.page-status {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-muted);
+/* ── Loading animation ────────────────────────────────────────────────────── */
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.loading-dot { animation: blink 1.2s ease-in-out infinite; }
+
+/* ── Review cards ─────────────────────────────────────────────────────────── */
+.review-card {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
 }
+.review-card:last-child { border-bottom: none; }
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+
+.review-stars  { font-size: 13px; color: var(--accent); letter-spacing: 1px; }
+.review-rating { font-size: 12px; font-weight: 600; color: var(--text); }
+
+.review-verified {
+  font-size: 10px; font-weight: 500;
+  color: #1a7a3c; background: #e6f4ec;
+  padding: 1px 6px; border-radius: 10px;
+  margin-left: auto;
+}
+
+.review-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.review-author { font-size: 12px; font-weight: 600; color: var(--text); }
+.review-date   { font-size: 11px; color: var(--text-muted); }
+.review-title  { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--text); }
+
+.review-body {
+  margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.review-body--empty { font-style: italic; }
+
+/* ── eBay listing cards ───────────────────────────────────────────────────── */
+.listing-price { font-size: 14px; font-weight: 700; color: var(--accent); }
+
+.listing-link {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.listing-link:hover { text-decoration: underline; }
+
+/* ── Cross-site match line ────────────────────────────────────────────────── */
+.cross-site-match {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 6px;
+  background: var(--bg);
+  border-radius: 4px;
+}
+.cross-site-match em { font-style: normal; color: var(--text); }
+.cross-site-match strong { color: var(--accent); }
+
+/* ── Price tab ────────────────────────────────────────────────────────────── */
+.price-current { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; padding-bottom: 10px; border-bottom: 2px solid var(--border); }
+.price-label { font-size: 13px; color: var(--text-muted); }
+.price-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+
+.price-original-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.price-original { font-size: 12px; color: var(--text-muted); text-decoration: line-through; }
+
+.price-stats { display: flex; gap: 8px; margin-bottom: 12px; }
+.stat { flex: 1; text-align: center; padding: 8px 6px; background: var(--bg); border-radius: var(--radius); }
+.stat-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.stat-value { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
+
+.price-chart-wrap { margin-bottom: 12px; background: var(--bg); border-radius: var(--radius); overflow: hidden; line-height: 0; }
+.price-chart-wrap canvas { display: block; width: 100%; height: 110px; }
+
+.price-savings { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; margin-bottom: 12px; background: var(--bg); border-radius: var(--radius); }
+.savings-label { font-size: 13px; color: var(--text-muted); }
+.savings-value { font-size: 13px; font-weight: 600; color: var(--text); }
+.savings-value.below-avg { color: #1a7a3c; }
+.savings-value.above-avg { color: #b91c1c; }
+.savings-value.at-avg    { color: var(--text-muted); }
+
+.price-period { margin-bottom: 0; }
+.period-label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+.period-btns  { display: flex; gap: 6px; }
+.period-btn { flex: 1; padding: 6px 8px; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; color: var(--text); }
+.period-btn:hover { background: var(--surface); }
+.period-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+.footer { padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border); }
+.page-status { margin: 0; font-size: 12px; color: var(--text-muted); }
