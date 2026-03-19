@@ -14,21 +14,37 @@
 
   <nav class="tabs" role="tablist">
     <button type="button" id="tab-reviews" class="tab active" data-tab="reviews" role="tab" aria-selected="true">Reviews</button>
-    <button type="button" id="tab-price" class="tab" data-tab="price" role="tab" aria-selected="false">Price</button>
-    <button type="button" id="tab-sellers" class="tab" data-tab="sellers" role="tab" aria-selected="false">Sellers</button>
-    <button type="button" id="tab-trust" class="tab" data-tab="trust" role="tab" aria-selected="false">Trust</button>
+    <button type="button" id="tab-price"   class="tab"        data-tab="price"   role="tab" aria-selected="false">Price</button>
+    <button type="button" id="tab-sellers" class="tab"        data-tab="sellers" role="tab" aria-selected="false">Sellers</button>
+    <button type="button" id="tab-trust"   class="tab"        data-tab="trust"   role="tab" aria-selected="false">Trust</button>
   </nav>
 
   <main class="panel-container">
+
+    <!-- Reviews: split into current-site + cross-site sections -->
     <section id="panel-reviews" class="panel active" role="tabpanel" aria-labelledby="tab-reviews">
-      <h2>Reviews</h2>
-      <p class="placeholder">Aggregated review score, pros & cons, and external reviewer references will appear here.</p>
+      <!-- Current site reviews (Amazon/Walmart/eBay DOM) -->
+      <div id="reviews-primary">
+        <p class="placeholder">Loading reviews…</p>
+      </div>
+      <!-- Cross-site reviews (fetched via background.js APIs) -->
+      <div id="reviews-cross-site" style="display:none">
+        <div class="cross-site-divider">
+          <span>Also on other sites</span>
+        </div>
+        <div id="reviews-cross-site-content"></div>
+      </div>
     </section>
+
+    <!-- Price -->
     <section id="panel-price" class="panel" role="tabpanel" aria-labelledby="tab-price" hidden>
-      <h2>Price</h2>
       <div class="price-current">
         <span class="price-label">Current price</span>
         <span class="price-value" id="current-price">$--</span>
+      </div>
+      <div class="price-original-row" id="original-price-row" style="display:none">
+        <span class="price-label">List price</span>
+        <span class="price-original" id="original-price"></span>
       </div>
       <div class="price-stats">
         <div class="stat">
@@ -45,10 +61,12 @@
         </div>
       </div>
       <div class="price-chart-wrap">
-        <p class="price-chart-placeholder">Chart will go here</p>
+        <canvas id="price-chart" width="296" height="110" aria-label="Price history chart" role="img"></canvas>
       </div>
+      <!-- Source badge: shows "Keepa" or "Simulated" -->
+      <p class="price-source-note" id="price-source-note">⚠ Price history is simulated — add a Keepa API key for real data.</p>
       <div class="price-savings">
-        <span class="savings-label">Savings</span>
+        <span class="savings-label">vs. avg</span>
         <span class="savings-value" id="savings-value">--</span>
       </div>
       <div class="price-period">
@@ -60,18 +78,23 @@
         </div>
       </div>
     </section>
+
+    <!-- Sellers -->
     <section id="panel-sellers" class="panel" role="tabpanel" aria-labelledby="tab-sellers" hidden>
       <h2>Sellers</h2>
-      <p class="placeholder">Comparison across Amazon, Best Buy, Walmart, Target and seller links will appear here.</p>
+      <p class="placeholder">Price comparison across Amazon, Walmart, and eBay will appear here.</p>
     </section>
+
+    <!-- Trust -->
     <section id="panel-trust" class="panel" role="tabpanel" aria-labelledby="tab-trust" hidden>
       <h2>Trust</h2>
-      <p class="placeholder">Trust score, rating breakdown, and review pattern analysis will appear here.</p>
+      <p class="placeholder">Trust score, rating breakdown, and review topic analysis will appear here.</p>
     </section>
+
   </main>
 
   <footer class="footer">
-    <p class="page-status">Visit a product page on Amazon, Walmart, Target, or Best Buy to see insights.</p>
+    <p class="page-status">Visit a product page on Amazon, Walmart, or eBay to see insights.</p>
   </footer>
 
   <script src="popup.js"></script>

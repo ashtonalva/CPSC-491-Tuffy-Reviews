@@ -1,5 +1,4 @@
-/* Tuffy Reviews – Popup styles
-   Keep layout compact and clear for a small extension window. */
+/* Tuffy Reviews – Popup styles */
 
 :root {
   --bg: #f8f9fa;
@@ -8,182 +7,182 @@
   --text: #1a1a1a;
   --text-muted: #5c6370;
   --accent: #bf5700;
-  --accent-hover: #9b4600;
   --radius: 8px;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   width: 360px;
   min-height: 320px;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
   line-height: 1.4;
   color: var(--text);
   background: var(--bg);
 }
 
-.header {
-  padding: 12px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.header { padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.logo   { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+.tagline { margin: 4px 0 0; font-size: 0.8rem; color: var(--text-muted); }
 
-.logo {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--accent);
-}
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 2px; padding: 8px 8px 0; background: var(--surface); border-bottom: 1px solid var(--border); }
+.tab  { flex: 1; padding: 8px 6px; font-size: 12px; font-weight: 500; color: var(--text-muted); background: transparent; border: none; border-radius: var(--radius) var(--radius) 0 0; cursor: pointer; }
+.tab:hover  { color: var(--text); background: var(--bg); }
+.tab.active { color: var(--accent); background: var(--bg); border-bottom: 2px solid var(--accent); }
 
-.tagline {
-  margin: 4px 0 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
+/* ── Panels ──────────────────────────────────────────────────────────────── */
+.panel-container { padding: 16px; background: var(--surface); min-height: 200px; }
+.panel  { display: none; }
+.panel.active { display: block; }
+.panel h2 { margin: 0 0 8px; font-size: 1rem; font-weight: 600; }
+.placeholder { margin: 0; font-size: 13px; color: var(--text-muted); }
 
-.tabs {
-  display: flex;
-  gap: 2px;
-  padding: 8px 8px 0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.tab {
-  flex: 1;
-  padding: 8px 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius) var(--radius) 0 0;
-  cursor: pointer;
-}
-
-.tab:hover {
-  color: var(--text);
-  background: var(--bg);
-}
-
-.tab.active {
-  color: var(--accent);
-  background: var(--bg);
-  border-bottom: 2px solid var(--accent);
-}
-
-.panel-container {
-  padding: 16px;
-  background: var(--surface);
-  min-height: 200px;
-}
-
-.panel {
-  display: none;
-}
-
-.panel.active {
-  display: block;
-}
-
-.panel h2 {
-  margin: 0 0 8px;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.placeholder {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-/* Price tab */
-.price-current {
+/* ── Reviews tab ─────────────────────────────────────────────────────────── */
+.reviews-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid var(--border);
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.reviews-source { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.reviews-count  { font-size: 11px; color: var(--text-muted); }
+
+/* Source mock badge (inline in reviews-source) */
+.source-mock {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  color: #92620a;
+  background: #fef3d0;
+  padding: 1px 5px;
+  border-radius: 8px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* Cross-site divider */
+.cross-site-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cross-site-divider::before,
+.cross-site-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Review cards */
+.review-card { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.review-card:last-child { border-bottom: none; }
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+.review-stars  { font-size: 13px; color: var(--accent); letter-spacing: 1px; }
+.review-rating { font-size: 12px; font-weight: 600; color: var(--text); }
+
+.review-verified {
+  font-size: 10px; font-weight: 500;
+  color: #1a7a3c; background: #e6f4ec;
+  padding: 1px 6px; border-radius: 10px;
+  margin-left: auto;
+}
+
+.review-mock-badge {
+  font-size: 10px; font-weight: 500;
+  color: #92620a; background: #fef3d0;
+  padding: 1px 6px; border-radius: 10px;
+  margin-left: 4px;
+}
+
+.review-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.review-author { font-size: 12px; font-weight: 600; color: var(--text); }
+.review-date   { font-size: 11px; color: var(--text-muted); }
+
+.review-title {
+  margin: 0 0 4px;
+  font-size: 12px; font-weight: 600; color: var(--text);
+}
+
+.review-body {
+  margin: 0;
+  font-size: 12px; color: var(--text-muted); line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.review-body--empty { font-style: italic; }
+
+/* ── Price tab ───────────────────────────────────────────────────────────── */
+.price-current {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 12px; padding-bottom: 10px; border-bottom: 2px solid var(--border);
 }
 .price-label { font-size: 13px; color: var(--text-muted); }
 .price-value { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
 
-.price-stats {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+.price-original-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
 }
-.stat {
-  flex: 1;
-  text-align: center;
-  padding: 8px 6px;
-  background: var(--bg);
-  border-radius: var(--radius);
-}
-.stat-label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-.stat-value { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
+.price-original { font-size: 12px; color: var(--text-muted); text-decoration: line-through; }
 
-.price-chart-wrap {
-  margin-bottom: 12px;
-  padding: 24px 12px;
-  background: var(--bg);
-  border-radius: var(--radius);
-}
-.price-chart-placeholder {
-  margin: 0;
-  font-size: 12px;
+.price-stats  { display: flex; gap: 8px; margin-bottom: 12px; }
+.stat         { flex: 1; text-align: center; padding: 8px 6px; background: var(--bg); border-radius: var(--radius); }
+.stat-label   { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.stat-value   { display: block; font-size: 13px; font-weight: 600; color: var(--text); }
+
+.price-chart-wrap { margin-bottom: 4px; background: var(--bg); border-radius: var(--radius); overflow: hidden; line-height: 0; }
+.price-chart-wrap canvas { display: block; width: 100%; height: 110px; }
+
+/* Price history source note */
+.price-source-note {
+  margin: 4px 0 10px;
+  font-size: 10px;
   color: var(--text-muted);
   text-align: center;
 }
+.price-source-note.note-mock { color: #92620a; }
+.price-source-note.note-real { color: #1a7a3c; }
 
 .price-savings {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  margin-bottom: 12px;
-  background: var(--bg);
-  border-radius: var(--radius);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 10px; margin-bottom: 12px;
+  background: var(--bg); border-radius: var(--radius);
 }
 .savings-label { font-size: 13px; color: var(--text-muted); }
 .savings-value { font-size: 13px; font-weight: 600; color: var(--text); }
+.savings-value.below-avg { color: #1a7a3c; }
+.savings-value.above-avg { color: #b91c1c; }
+.savings-value.at-avg    { color: var(--text-muted); }
 
 .price-period { margin-bottom: 0; }
 .period-label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-.period-btns { display: flex; gap: 6px; }
-.period-btn {
-  flex: 1;
-  padding: 6px 8px;
-  font-size: 11px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text);
-}
-.period-btn:hover { background: var(--surface); }
-.period-btn.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
+.period-btns  { display: flex; gap: 6px; }
+.period-btn   { flex: 1; padding: 6px 8px; font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; color: var(--text); }
+.period-btn:hover  { background: var(--surface); }
+.period-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
 
-.footer {
-  padding: 10px 16px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
-}
-
-.page-status {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-muted);
-}
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.footer      { padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border); }
+.page-status { margin: 0; font-size: 12px; color: var(--text-muted); }
