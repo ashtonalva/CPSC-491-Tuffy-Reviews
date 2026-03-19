@@ -320,7 +320,126 @@
       );
     }
   }
+// ─── Sellers tab ────────────────────────────────────────────────────────────
+// Cached state so switching periods doesn't re-fetch
+let cachedSellerCount   = null;
+let cachedBuyBoxSeller  = null;
+let cachedSellerHistory = null; // null = mock; array = real
 
+function renderSellersTab(sellerCount, buyBoxSeller, historyPoints) {
+  const days = getSelectedDays();
+  let points;
+  const sourceNote = document.getElementById('seller-source-note');
+  // 1 — Resolve real or mock data
+  if (historyPoints && historyPoints.length) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    points = historyPoints.filter((p) => new Date(p.date) >= cutoff);
+
+    if (sourceNote) {
+      sourceNote.textContent = `Seller history from Keepa · ${points.length} data points`;
+      sourceNote.classList.remove('note-mock');
+      sourceNote.classList.add('note-real');
+    }
+  } else {
+    points = mockSellerHistory(days, sellerCount);
+
+    if (sourceNote) {
+      sourceNote.textContent = '⚠ Seller history is simulated — add a Keepa API key for real data.';
+      sourceNote.classList.remove('note-real');
+      sourceNote.classList.add('note-mock');
+    }
+  }
+
+  if (!points.length) points = mockSellerHistory(days, sellerCount);
+
+  // Extract values
+  const counts = points.map((p) => p.sellers);
+  const lowest  = Math.min(...counts);
+  const highest = Math.max(...counts);
+  const average = counts.reduce((a, b) => a + b, 0) / counts.length;
+  // 2 — Update DOM
+  const el = (id) => document.getElementById(id);
+
+  if (el('seller-current')) el('seller-current').textContent = sellerCount ?? '--';
+  if (el('seller-buybox'))  el('seller-buybox').textContent  = buyBoxSeller ?? 'Unknown';
+
+  if (el('seller-lowest'))  el('seller-lowest').textContent  = lowest;
+  if (el('seller-average')) el('seller-average').textContent = average.toFixed(1);
+  if (el('seller-highest')) el('seller-highest').textContent = highest;
+
+  drawSellerChart(points);
+}
+// Mock seller history generator
+function mockSellerHistory(days, baseCount) {
+  const base = baseCount || 5;
+  const now  = new Date();
+  const out  = [];
+
+  for (let i = days; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+
+    // Small deterministic wiggle
+    const t = (i / Math.max(days, 1)) * Math.PI * 2;
+    const v = Math.sin(t) * 1.2 + (i % 4) * 0.3 - 0.5;
+
+    const sellers = Math.max(1, Math.round(base + v));
+    out.push({ date: d.toISOString().split('T')[0], sellers });
+  }
+
+  // Force last point to match real seller count
+  if (out.length && baseCount != null) out[out.length - 1].sellers = baseCount;
+
+  return out;
+}
+// Load Sellers Tab
+async function loadSellersTab() {
+  const el = (id) => document.getElementById(id);
+  if (el('seller-current')) el('seller-current').textContent = '--';
+
+  let tab;
+  try { tab = await getActiveTab(); } catch {
+    renderSellersTab(null, null, null);
+    return;
+  }
+
+  if (!SUPPORTED.test(tab?.url || '')) {
+    renderSellersTab(null, null, null);
+    return;
+  }
+
+  // 1 — Get seller info from page
+  let sellerData = null;
+  try {
+    sellerData = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SELLERS' });
+  } catch {}
+
+  cachedSellerCount  = sellerData?.count ?? null;
+  cachedBuyBoxSeller = sellerData?.buybox ?? null;
+
+  // 2 — Render immediately with mock history
+  renderSellersTab(cachedSellerCount, cachedBuyBoxSeller, null);
+
+  // 3 — Request real seller history from Keepa
+  let pageInfo = null;
+  try {
+    pageInfo = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRODUCT_INFO' });
+  } catch {}
+
+  if (pageInfo?.asin) {
+    const days = getSelectedDays();
+    chrome.runtime.sendMessage(
+      { type: 'FETCH_SELLER_HISTORY', asin: pageInfo.asin, days },
+      (keepaResult) => {
+        if (keepaResult?.points?.length) {
+          cachedSellerHistory = keepaResult.points;
+          renderSellersTab(cachedSellerCount, cachedBuyBoxSeller, cachedSellerHistory);
+        }
+      }
+    );
+  }
+}
   // ─── Chart ────────────────────────────────────────────────────────────────
 
   function drawPriceChart(data) {
