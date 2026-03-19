@@ -104,6 +104,24 @@
     if (el) el.innerHTML = html;
   }
 
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function reviewSummaryHtml(summaryText) {
+    const text = escapeHtml(summaryText || '');
+    return `
+      <div class="review-summary-block">
+        <div class="review-summary-title">Review Summary</div>
+        <div class="review-summary-text">${text}</div>
+      </div>`;
+  }
+
   function setCrossSite(walmartResult, ebayResult) {
     const wrap    = document.getElementById('reviews-cross-site');
     const content = document.getElementById('reviews-cross-site-content');
@@ -129,7 +147,8 @@
 
   async function loadReviews() {
     setPrimary('<p class="placeholder">Loading reviews…</p>');
-    document.getElementById('reviews-cross-site').style.display = 'none';
+    const crossSiteEl = document.getElementById('reviews-cross-site');
+    if (crossSiteEl) crossSiteEl.style.display = 'none';
 
     let tab;
     try { tab = await getActiveTab(); } catch {
@@ -154,13 +173,16 @@
     const reviews = primary?.reviews || [];
     const retailer = primary?.retailer;
     const label = RETAILER_LABEL[retailer] || 'This site';
+    const reviewSummary = primary?.reviewSummary;
+    const summaryHtml = reviewSummary ? reviewSummaryHtml(reviewSummary) : '';
 
     if (!reviews.length) {
       setPrimary(`
+        ${summaryHtml}
         <p class="placeholder">No reviews found on this page.</p>
         <p class="placeholder" style="margin-top:6px;font-size:11px;">Make sure you're on a product detail page.</p>`);
     } else {
-      setPrimary(sectionHtml(`Top reviews · ${label}`, reviews, 'api', true));
+      setPrimary(`${summaryHtml}${sectionHtml(`Top reviews · ${label}`, reviews, 'api', true)}`);
     }
 
     // 2 — fetch cross-site reviews in the background (only on Amazon for now)

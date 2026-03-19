@@ -133,6 +133,65 @@
     return reviews;
   }
 
+  // Extract Amazon "Customers say" block (text after heading, before "Select to learn more").
+  // Also deduplicates the AI attribution line, if Amazon repeats it.
+  function readAmazonCustomersSay() {
+    const customersRe = /customers\s+say/i;
+    const learnMoreRe = /select\s+to\s+learn\s+more/i;
+
+    // Find an element whose visible text is exactly "Customers say" (preferred)
+    // or starts with it (fallback).
+    const headingEl =
+      Array.from(document.querySelectorAll('h1,h2,h3,h4,span,div,section')).find((el) => {
+        const t = el.textContent ? el.textContent.trim() : '';
+        return t && customersRe.test(t) && t.toLowerCase() === 'customers say';
+      }) ||
+      Array.from(document.querySelectorAll('h1,h2,h3,h4,span,div,section')).find((el) => {
+        const t = el.textContent ? el.textContent.trim() : '';
+        return t && customersRe.test(t) && t.toLowerCase().startsWith('customers say');
+      });
+
+    if (!headingEl) return null;
+
+    // Pick the smallest ancestor that still contains both markers.
+    let container = null;
+    let containerLen = Infinity;
+    for (let el = headingEl; el && el !== document.documentElement; el = el.parentElement) {
+      const txt = el.innerText ? el.innerText.trim() : '';
+      if (!txt) continue;
+      if (!customersRe.test(txt) || !learnMoreRe.test(txt)) continue;
+      if (txt.length < containerLen) {
+        container = el;
+        containerLen = txt.length;
+      }
+    }
+
+    if (!container) return null;
+
+    const full = container.innerText || '';
+    const lower = full.toLowerCase();
+    const start = lower.indexOf('customers say');
+    if (start < 0) return null;
+
+    const afterHeading = start + 'customers say'.length;
+    const end = lower.indexOf('select to learn more', afterHeading);
+
+    const extracted = end >= 0 ? full.slice(afterHeading, end) : full.slice(afterHeading);
+
+    let cleaned = extracted.replace(/^\s*[:\-–—]?\s*/, '').trim();
+
+    // Deduplicate "AI Generated from the text of customer reviews" if repeated.
+    const aiPhraseRe = /ai\s+generated\s+from\s+the\s+text\s+of\s+customer\s+reviews/i;
+    let firstAiSeen = false;
+    cleaned = cleaned.replace(aiPhraseRe, () => {
+      if (firstAiSeen) return '';
+      firstAiSeen = true;
+      return 'AI Generated from the text of customer reviews';
+    }).trim();
+
+    return cleaned || null;
+  }
+
   function readAmazonPrice() {
     const selectors = [
       'span.priceToPay .a-offscreen', 'span.priceToPay',
@@ -254,7 +313,18 @@
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === 'GET_REVIEWS') {
-      sendResponse({ retailer, url: window.location.href, reviews: REVIEW_READERS[retailer]() });
+      try {
+        const reader = REVIEW_READERS[retailer];
+        const reviews = reader ? reader() : [];
+        let reviewSummary = null;
+        if (retailer === 'amazon') {
+          reviewSummary = readAmazonCustomersSay();
+        }
+        sendResponse({ retailer, url: window.location.href, reviews, reviewSummary });
+      } catch (_) {
+        // Never break the popup if scraping fails; return empty data instead.
+        sendResponse({ retailer, url: window.location.href, reviews: [], reviewSummary: null });
+      }
       return true;
     }
     if (message.type === 'GET_PRICE') {
