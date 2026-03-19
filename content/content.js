@@ -1,6 +1,6 @@
 /**
  * Tuffy Reviews – Content script
- * Runs on Amazon, Walmart, eBay product pages.
+ * Runs on Amazon, Walmart, eBay product pages (more to come).
  * Handles GET_REVIEWS, GET_PRICE, and GET_CONTEXT messages from the popup.
  */
 
