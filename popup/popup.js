@@ -266,14 +266,14 @@
       cutoff.setDate(cutoff.getDate() - days);
       points = historyPoints.filter((p) => new Date(p.date) >= cutoff);
       if (sourceNote) {
-        sourceNote.textContent = `Price history from Keepa · ${points.length} data points`;
+        sourceNote.textContent = `Price history updates automatically · ${points.length} data points`;
         sourceNote.classList.remove('note-mock');
         sourceNote.classList.add('note-real');
       }
     } else {
       points = mockHistory(days, currentPrice);
       if (sourceNote) {
-        sourceNote.textContent = '⚠ Price history is simulated — add a Keepa API key for real data.';
+        sourceNote.textContent = 'Price history updates automatically.';
         sourceNote.classList.remove('note-real');
         sourceNote.classList.add('note-mock');
       }
