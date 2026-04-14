@@ -31,8 +31,16 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.period-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-      // Re-render with cached price + cached history points
-      renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, cachedHistoryPoints);
+      const pricePanel = document.getElementById('panel-price');
+      const priceTabVisible = !!pricePanel && pricePanel.classList.contains('active');
+      if (priceTabVisible) {
+        requestPriceHistoryForSelectedPeriod().catch(() => {
+          renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, cachedHistoryPoints);
+        });
+      } else {
+        // Re-render with cached price + cached history points
+        renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, cachedHistoryPoints);
+      }
     });
   });
 
@@ -92,6 +100,12 @@
   async function getActiveTab() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     return tab;
+  }
+
+  function sendRuntimeMessage(payload) {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(payload, (response) => resolve(response || null));
+    });
   }
 
   const SUPPORTED = /amazon\.com|walmart\.com|ebay\.com/;
@@ -211,6 +225,8 @@
   let cachedCurrentPrice  = null;
   let cachedOriginalPrice = null;
   let cachedHistoryPoints = null; // null = use mock; array = use real
+  let cachedHistoryDays   = 0;
+  let cachedPriceAsin     = null;
 
   function fmt(n) {
     return n != null ? '$' + parseFloat(n).toFixed(2) : '$--';
@@ -298,6 +314,38 @@
     return active ? parseInt(active.getAttribute('data-days'), 10) : 90;
   }
 
+  async function requestPriceHistoryForSelectedPeriod() {
+    const days = getSelectedDays();
+
+    // No product ID available; continue with mock rendering.
+    if (!cachedPriceAsin) {
+      renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, null);
+      return;
+    }
+
+    // Already have enough real history to cover this window.
+    if (cachedHistoryPoints?.length && cachedHistoryDays >= days) {
+      renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, cachedHistoryPoints);
+      return;
+    }
+
+    const keepaResult = await sendRuntimeMessage({
+      type: 'FETCH_PRICE_HISTORY',
+      asin: cachedPriceAsin,
+      days,
+    });
+
+    if (keepaResult?.points?.length) {
+      cachedHistoryPoints = keepaResult.points;
+      cachedHistoryDays = days;
+      renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, cachedHistoryPoints);
+      return;
+    }
+
+    // Keep previous real points if we had any; otherwise fallback to mock.
+    renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, cachedHistoryPoints);
+  }
+
   async function loadPriceTab() {
     const el = (id) => document.getElementById(id);
     if (el('current-price')) el('current-price').textContent = '$--';
@@ -329,18 +377,8 @@
       pageInfo = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRODUCT_INFO' });
     } catch { /* ok */ }
 
-    if (pageInfo?.asin) {
-      const days = getSelectedDays();
-      chrome.runtime.sendMessage(
-        { type: 'FETCH_PRICE_HISTORY', asin: pageInfo.asin, days },
-        (keepaResult) => {
-          if (keepaResult?.points?.length) {
-            cachedHistoryPoints = keepaResult.points;
-            renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, cachedHistoryPoints);
-          }
-        }
-      );
-    }
+    cachedPriceAsin = pageInfo?.asin || null;
+    await requestPriceHistoryForSelectedPeriod();
   }
 // ─── Sellers tab ────────────────────────────────────────────────────────────
 // Cached state so switching periods doesn't re-fetch
