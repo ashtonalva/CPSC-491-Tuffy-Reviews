@@ -1,52 +1,45 @@
 {
-   "manifest_version": 3,
-   "name": "Tuffy Reviews",
-   "version": "0.1.0",
-   "description": "Shopping assistant: aggregated reviews, price history, seller comparison, and trust scores on product pages.",
-   "permissions": ["activeTab", "storage", "tabs"],
-<<<<<<< Updated upstream
-   "host_permissions": [
-      "https://www.amazon.com/*",
-      "https://www.walmart.com/*",
-      "https://www.target.com/*",
-      "https://www.bestbuy.com/*"
-=======
-   "icons": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-   },
-   "host_permissions": [
-      "https://www.amazon.com/*",
-      "https://www.walmart.com/*",
-      "https://www.ebay.com/*",
-      "https://www.target.com/*",
-      "https://www.bestbuy.com/*",
-      "https://1j22dbprfj.execute-api.us-east-2.amazonaws.com/*"
->>>>>>> Stashed changes
-   ],
-   "action": {
-      "default_popup": "popup/popup.html",
-      "default_title": "Tuffy Reviews"
-   },
-   "content_scripts": [
-      {
-         "matches": [
-            "https://www.amazon.com/*",
-            "https://www.walmart.com/*",
-<<<<<<< Updated upstream
-=======
-            "https://www.ebay.com/*",
->>>>>>> Stashed changes
-            "https://www.target.com/*",
-            "https://www.bestbuy.com/*"
-         ],
-         "js": ["content/content.js"],
-         "css": ["content/content.css"],
-         "run_at": "document_idle"
-      }
-   ],
-   "background": {
-      "service_worker": "background/background.js"
-   }
+  "manifest_version": 3,
+  "name": "Tuffy Reviews",
+  "version": "0.1.0",
+  "description": "Shopping assistant: aggregated reviews, price history, seller comparison, and trust scores on product pages.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs"
+  ],
+  "icons": {
+    "16":  "icons/icon16.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "host_permissions": [
+    "https://www.amazon.com/*",
+    "https://www.walmart.com/*",
+    "https://www.ebay.com/*",
+    "https://www.target.com/*",
+    "https://www.bestbuy.com/*",
+    "https://1j22dbprfj.execute-api.us-east-2.amazonaws.com/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Tuffy Reviews"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.amazon.com/*",
+        "https://www.walmart.com/*",
+        "https://www.ebay.com/*",
+        "https://www.target.com/*",
+        "https://www.bestbuy.com/*"
+      ],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background/background.js"
+  }
 }

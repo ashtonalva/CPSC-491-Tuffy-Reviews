@@ -5,7 +5,6 @@ Build in this order, one at a time.
 ---
 
 ## 1. Price tab structure (HTML + CSS)
-
 **Goal:** Add the layout and placeholders for the Price panel. No data or logic yet.
 
 - Current price line (e.g. "Current price: $--")
@@ -19,7 +18,6 @@ Build in this order, one at a time.
 ---
 
 ## 2. Mock price data ✅
-
 **Goal:** Generate fake price history in JS so the rest of the tab can use it.
 
 - Function that returns an array of `{ date, price }` for a given number of days (e.g. 30, 90, 180).
@@ -32,7 +30,6 @@ Build in this order, one at a time.
 ---
 
 ## 3. Price stats from data ✅
-
 **Goal:** Compute and show Lowest, Average, Highest from the mock data.
 
 - When the Price tab is shown (or when period changes), compute min, max, and average of the mock prices.
@@ -45,7 +42,6 @@ Build in this order, one at a time.
 ---
 
 ## 4. Period selector behavior ✅
-
 **Goal:** Changing the period updates the data used for the tab.
 
 - When user picks "30 days", "90 days", or "6 months", store the selected period (variable or data attribute).
@@ -58,7 +54,6 @@ Build in this order, one at a time.
 ---
 
 ## 5. Price history chart
-
 **Goal:** Draw a simple line chart of price over time.
 
 - Use a `<canvas>` in the chart container.
@@ -71,7 +66,6 @@ Build in this order, one at a time.
 ---
 
 ## 6. Savings indicator
-
 **Goal:** Show whether the current price is a good deal.
 
 - Define “savings” (e.g. vs average price or vs highest in period).
@@ -83,7 +77,6 @@ Build in this order, one at a time.
 ---
 
 ## 7. Load on tab switch
-
 **Goal:** Everything runs when the user opens the Price tab.
 
 - On switching to the Price tab, run: get mock data → update stats → draw chart → update savings.
@@ -96,14 +89,14 @@ Build in this order, one at a time.
 
 ## Summary order
 
-| #   | Sub-feature              | Depends on |
-| --- | ------------------------ | ---------- |
-| 1   | Price tab structure      | —          |
-| 2   | Mock price data          | —          |
-| 3   | Price stats from data    | 1, 2       |
-| 4   | Period selector behavior | 1, 2, 3    |
-| 5   | Price history chart      | 1, 2, 4    |
-| 6   | Savings indicator        | 1, 2, 3    |
-| 7   | Load on tab switch       | 3, 4, 5, 6 |
+| # | Sub-feature              | Depends on |
+|---|--------------------------|------------|
+| 1 | Price tab structure      | —          |
+| 2 | Mock price data          | —          |
+| 3 | Price stats from data    | 1, 2       |
+| 4 | Period selector behavior | 1, 2, 3    |
+| 5 | Price history chart      | 1, 2, 4    |
+| 6 | Savings indicator        | 1, 2, 3    |
+| 7 | Load on tab switch       | 3, 4, 5, 6 |
 
 We can start with **1. Price tab structure** next.
