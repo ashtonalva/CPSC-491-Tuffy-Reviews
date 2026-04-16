@@ -86,8 +86,53 @@
 
     <!-- Trust -->
     <section id="panel-trust" class="panel" role="tabpanel" aria-labelledby="tab-trust" hidden>
-      <h2>Trust</h2>
-      <p class="placeholder">Trust score, rating breakdown, and review topic analysis will appear here.</p>
+      <div class="trust-header">
+        <div>
+          <h2 class="trust-title">Trust Score</h2>
+          <p class="trust-subtitle" id="trust-retailer-label">Analyzing this product page…</p>
+        </div>
+        <div class="trust-score-badge" id="trust-score-badge">--</div>
+      </div>
+
+      <div class="trust-band-wrap">
+        <div class="trust-band-track">
+          <div class="trust-band-fill" id="trust-band-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="trust-pill-row" id="trust-pill-row">
+        <span class="trust-pill">No data yet</span>
+      </div>
+
+      <div class="trust-grid">
+        <div class="trust-card">
+          <span class="trust-card-label">Avg rating</span>
+          <span class="trust-card-value" id="trust-avg-rating">--</span>
+        </div>
+        <div class="trust-card">
+          <span class="trust-card-label">Verified</span>
+          <span class="trust-card-value" id="trust-verified-rate">--</span>
+        </div>
+        <div class="trust-card">
+          <span class="trust-card-label">Low ratings</span>
+          <span class="trust-card-value" id="trust-low-rate">--</span>
+        </div>
+      </div>
+
+      <div class="trust-section">
+        <h3 class="trust-section-title">Risk flags</h3>
+        <div class="trust-flag-row" id="trust-flag-row">
+          <span class="trust-flag trust-flag-neutral">No risk analysis yet</span>
+        </div>
+        <p class="trust-flag-detail" id="trust-flag-detail">Tap a risk flag to see details.</p>
+      </div>
+
+      <div class="trust-section trust-section-gap">
+        <h3 class="trust-section-title">Why this score</h3>
+        <ul class="trust-list" id="trust-reasons">
+          <li>Open this tab on a supported product page.</li>
+        </ul>
+      </div>
     </section>
 
   </main>

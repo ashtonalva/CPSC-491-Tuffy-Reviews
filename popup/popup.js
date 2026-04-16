@@ -23,6 +23,7 @@
     });
     if (selectedTab === 'price')   loadPriceTab();
     if (selectedTab === 'reviews') loadReviews();
+    if (selectedTab === 'trust')   loadTrustTab();
   }
 
   tabs.forEach((tab) => tab.addEventListener('click', () => switchTab(tab.getAttribute('data-tab'))));
@@ -216,6 +217,275 @@
           }
         );
       }
+    }
+  }
+
+  // ─── Trust tab ────────────────────────────────────────────────────────────
+
+  function trustTone(score) {
+    if (score >= 80) return { label: 'High trust', color: '#1a7a3c' };
+    if (score >= 60) return { label: 'Moderate trust', color: '#0f766e' };
+    if (score >= 40) return { label: 'Mixed trust', color: '#b45309' };
+    return { label: 'Low trust', color: '#b91c1c' };
+  }
+
+  function clamp(n, min, max) {
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function parseReviewDate(value) {
+    if (!value) return null;
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d;
+    return null;
+  }
+
+  function normalizeText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function computeTrustMetrics(reviews) {
+    const rated = reviews.filter((r) => typeof r.rating === 'number' && Number.isFinite(r.rating));
+    const withBody = reviews.filter((r) => (r.body || '').trim().length > 0);
+    const verified = reviews.filter((r) => r.verified);
+    const low = rated.filter((r) => r.rating <= 2);
+    const high = rated.filter((r) => r.rating >= 4);
+    const extreme = rated.filter((r) => r.rating <= 1 || r.rating >= 5);
+
+    const avgRating = rated.length
+      ? rated.reduce((sum, r) => sum + r.rating, 0) / rated.length
+      : null;
+    const verifiedRate = reviews.length ? verified.length / reviews.length : 0;
+    const lowRate = rated.length ? low.length / rated.length : 0;
+    const highRate = rated.length ? high.length / rated.length : 0;
+    const extremeRate = rated.length ? extreme.length / rated.length : 0;
+    const bodyRate = reviews.length ? withBody.length / reviews.length : 0;
+
+    // Duplicate-text signal.
+    const bodyBuckets = new Map();
+    withBody.forEach((review) => {
+      const key = normalizeText(review.body);
+      if (!key || key.length < 20) return;
+      bodyBuckets.set(key, (bodyBuckets.get(key) || 0) + 1);
+    });
+    let duplicateReviews = 0;
+    bodyBuckets.forEach((count) => {
+      if (count > 1) duplicateReviews += count;
+    });
+    const duplicateRate = reviews.length ? duplicateReviews / reviews.length : 0;
+
+    // Recency burst signal: many reviews clustered in <= 7 days.
+    const parsedDates = reviews
+      .map((r) => parseReviewDate(r.date))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+    let burstRate = 0;
+    if (parsedDates.length >= 4) {
+      const msWindow = 7 * 24 * 60 * 60 * 1000;
+      let maxInWindow = 1;
+      for (let i = 0; i < parsedDates.length; i += 1) {
+        let count = 1;
+        for (let j = i + 1; j < parsedDates.length; j += 1) {
+          if (parsedDates[j] - parsedDates[i] <= msWindow) count += 1;
+          else break;
+        }
+        if (count > maxInWindow) maxInWindow = count;
+      }
+      burstRate = maxInWindow / parsedDates.length;
+    }
+
+    const sampleConfidence = clamp(reviews.length / 8, 0.35, 1);
+
+    // Stronger heuristic: quality signals, manipulation penalties, and confidence weighting.
+    let score = 50;
+    if (avgRating != null) {
+      score += ((avgRating - 3) / 2) * 30; // roughly -30..+30 contribution
+    }
+    score += (verifiedRate - 0.5) * 20;
+    score += (bodyRate - 0.5) * 10;
+    score -= lowRate * 25;
+    score += highRate * 10;
+    score -= extremeRate * 10;
+    score -= duplicateRate * 25;
+    score -= Math.max(0, burstRate - 0.6) * 25;
+    score = 50 + (score - 50) * sampleConfidence;
+    score = Math.round(clamp(score, 0, 100));
+
+    return {
+      score,
+      avgRating,
+      verifiedRate,
+      lowRate,
+      highRate,
+      extremeRate,
+      duplicateRate,
+      burstRate,
+      sampleConfidence,
+    };
+  }
+
+  function renderTrustFallback(message) {
+    const subtitle = document.getElementById('trust-retailer-label');
+    const badge = document.getElementById('trust-score-badge');
+    const band = document.getElementById('trust-band-fill');
+    const pillRow = document.getElementById('trust-pill-row');
+    const avg = document.getElementById('trust-avg-rating');
+    const verified = document.getElementById('trust-verified-rate');
+    const low = document.getElementById('trust-low-rate');
+    const reasons = document.getElementById('trust-reasons');
+    const flags = document.getElementById('trust-flag-row');
+    const flagDetail = document.getElementById('trust-flag-detail');
+
+    if (subtitle) subtitle.textContent = message;
+    if (badge) {
+      badge.textContent = '--';
+      badge.style.background = '#6b7280';
+    }
+    if (band) {
+      band.style.width = '0%';
+      band.style.background = '#6b7280';
+    }
+    if (pillRow) pillRow.innerHTML = '<span class="trust-pill">No data yet</span>';
+    if (avg) avg.textContent = '--';
+    if (verified) verified.textContent = '--';
+    if (low) low.textContent = '--';
+    if (flags) flags.innerHTML = '<span class="trust-flag trust-flag-neutral">No risk analysis yet</span>';
+    if (flagDetail) flagDetail.textContent = 'Tap a risk flag to see details.';
+    if (reasons) reasons.innerHTML = '<li>Open the Trust tab on a supported product detail page.</li>';
+  }
+
+  function riskLevel(value, lowCutoff, highCutoff) {
+    if (value >= highCutoff) return 'high';
+    if (value >= lowCutoff) return 'medium';
+    return 'low';
+  }
+
+  function riskBadgeHtml(label, level, key) {
+    const className =
+      level === 'high' ? 'trust-flag-high'
+      : level === 'medium' ? 'trust-flag-medium'
+      : 'trust-flag-low';
+    return `<span class="trust-flag ${className}" data-risk-key="${key}">${label}</span>`;
+  }
+
+  function setRiskFlagInteraction(detailMap) {
+    const flags = document.getElementById('trust-flag-row');
+    const detail = document.getElementById('trust-flag-detail');
+    if (!flags || !detail) return;
+
+    flags.querySelectorAll('.trust-flag').forEach((badge) => {
+      const key = badge.getAttribute('data-risk-key');
+      if (!key || !detailMap[key]) return;
+      badge.addEventListener('click', () => {
+        detail.textContent = detailMap[key];
+      });
+    });
+  }
+
+  async function loadTrustTab() {
+    renderTrustFallback('Analyzing this product page…');
+
+    let tab;
+    try {
+      tab = await getActiveTab();
+    } catch {
+      renderTrustFallback('Could not access the current tab.');
+      return;
+    }
+
+    if (!SUPPORTED.test(tab?.url || '')) {
+      renderTrustFallback('Visit Amazon, Walmart, or eBay product pages.');
+      return;
+    }
+
+    let primary;
+    try {
+      primary = await chrome.tabs.sendMessage(tab.id, { type: 'GET_REVIEWS' });
+    } catch {
+      renderTrustFallback('Could not read reviews. Refresh the page and try again.');
+      return;
+    }
+
+    const reviews = primary?.reviews || [];
+    const retailer = primary?.retailer || 'this site';
+    if (!reviews.length) {
+      renderTrustFallback('No review signals found on this page.');
+      return;
+    }
+
+    const metrics = computeTrustMetrics(reviews);
+    const tone = trustTone(metrics.score);
+
+    const subtitle = document.getElementById('trust-retailer-label');
+    const badge = document.getElementById('trust-score-badge');
+    const band = document.getElementById('trust-band-fill');
+    const pillRow = document.getElementById('trust-pill-row');
+    const avg = document.getElementById('trust-avg-rating');
+    const verified = document.getElementById('trust-verified-rate');
+    const low = document.getElementById('trust-low-rate');
+    const reasons = document.getElementById('trust-reasons');
+    const flags = document.getElementById('trust-flag-row');
+
+    if (subtitle) subtitle.textContent = `${RETAILER_LABEL[retailer] || 'This retailer'} review signals`;
+    if (badge) {
+      badge.textContent = String(metrics.score);
+      badge.style.background = tone.color;
+    }
+    if (band) {
+      band.style.width = `${metrics.score}%`;
+      band.style.background = tone.color;
+    }
+
+    if (pillRow) {
+      const counted = `${reviews.length} reviews`;
+      const confidence = metrics.avgRating != null ? tone.label : 'Limited signals';
+      const confidencePct = Math.round(metrics.sampleConfidence * 100);
+      pillRow.innerHTML = [
+        `<span class="trust-pill">${counted}</span>`,
+        `<span class="trust-pill">${confidence}</span>`,
+        `<span class="trust-pill">Confidence ${confidencePct}%</span>`,
+      ].join('');
+    }
+
+    if (avg) avg.textContent = metrics.avgRating != null ? `${metrics.avgRating.toFixed(1)} / 5` : '--';
+    if (verified) verified.textContent = `${Math.round(metrics.verifiedRate * 100)}%`;
+    if (low) low.textContent = `${Math.round(metrics.lowRate * 100)}%`;
+
+    if (flags) {
+      const duplicateLevel = riskLevel(metrics.duplicateRate, 0.2, 0.35);
+      const burstLevel = riskLevel(metrics.burstRate, 0.65, 0.8);
+      const extremeLevel = riskLevel(metrics.extremeRate, 0.65, 0.85);
+      const lowStarLevel = riskLevel(metrics.lowRate, 0.25, 0.4);
+
+      flags.innerHTML = [
+        riskBadgeHtml(`Duplicate text: ${duplicateLevel}`, duplicateLevel, 'duplicate'),
+        riskBadgeHtml(`Review burst: ${burstLevel}`, burstLevel, 'burst'),
+        riskBadgeHtml(`Extreme ratings: ${extremeLevel}`, extremeLevel, 'extreme'),
+        riskBadgeHtml(`Low-star share: ${lowStarLevel}`, lowStarLevel, 'lowstar'),
+      ].join('');
+
+      setRiskFlagInteraction({
+        duplicate: `Duplicate text rate is ${Math.round(metrics.duplicateRate * 100)}%. Higher repeat wording can indicate copied or coordinated reviews.`,
+        burst: `Burst concentration is ${Math.round(metrics.burstRate * 100)}% within the densest 7-day window. Heavy clustering can be a manipulation signal.`,
+        extreme: `${Math.round(metrics.extremeRate * 100)}% of ratings are 1-star or 5-star. Extreme-heavy distributions can reduce trust confidence.`,
+        lowstar: `${Math.round(metrics.lowRate * 100)}% of rated reviews are 1-2 stars. A high share may indicate product quality or expectation issues.`,
+      });
+    }
+
+    if (reasons) {
+      const reasonLines = [];
+      if (metrics.avgRating != null) reasonLines.push(`Average rating is ${metrics.avgRating.toFixed(1)} out of 5.`);
+      reasonLines.push(`${Math.round(metrics.verifiedRate * 100)}% of sampled reviews are marked verified.`);
+      reasonLines.push(`${Math.round(metrics.lowRate * 100)}% of rated reviews are 1-2 stars.`);
+      reasonLines.push(`${Math.round(metrics.extremeRate * 100)}% of ratings are extreme (1 or 5 stars).`);
+      reasonLines.push(`${Math.round(metrics.duplicateRate * 100)}% of sampled reviews look textually duplicated.`);
+      reasonLines.push(`${Math.round(metrics.burstRate * 100)}% of dated reviews fall within the densest 7-day window.`);
+      reasonLines.push('Trust score is heuristic and updates from on-page review data.');
+      reasons.innerHTML = reasonLines.map((line) => `<li>${line}</li>`).join('');
     }
   }
 
