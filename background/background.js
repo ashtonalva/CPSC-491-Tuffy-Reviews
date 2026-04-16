@@ -75,6 +75,165 @@ function keepRecentDays(points, days) {
   return points.filter((p) => new Date(p.date) >= cutoff);
 }
 
+function hashStringToInt(input) {
+  let h = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    h = ((h << 5) - h) + input.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h);
+}
+
+function buildMockSellerHistory(asin, days) {
+  const seed = hashStringToInt(asin || 'tuffy');
+  const base = 2 + (seed % 8);
+  const now = new Date();
+  const out = [];
+
+  for (let i = days; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const wave = Math.sin((i / Math.max(days, 1)) * Math.PI * 2) * 1.4;
+    const drift = ((seed + i) % 5) - 2;
+    const sellers = Math.max(1, Math.round(base + wave + drift * 0.25));
+    out.push({ date: d.toISOString().split('T')[0], sellers });
+  }
+
+  return out;
+}
+
+function decodeHtmlEntities(text) {
+  return String(text || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeQuery(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function buildFallbackSellerListing(store, productName) {
+  return {
+    store,
+    title: productName || `${store} listing`,
+    seller: store === 'eBay' ? 'Marketplace seller' : `${store} seller`,
+    price: null,
+    url: null,
+    source: 'fallback',
+    note: 'Free public lookup could not confirm a matching offer.',
+  };
+}
+
+async function fetchWalmartSellerListing(productName) {
+  const query = normalizeQuery(productName);
+  if (!query) return buildFallbackSellerListing('Walmart', productName);
+
+  const res = await fetch(`https://www.walmart.com/search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) return buildFallbackSellerListing('Walmart', productName);
+
+  const html = await res.text();
+  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+  if (!nextDataMatch) return buildFallbackSellerListing('Walmart', productName);
+
+  let data = null;
+  try {
+    data = JSON.parse(nextDataMatch[1]);
+  } catch (_) {
+    return buildFallbackSellerListing('Walmart', productName);
+  }
+
+  function findFirstItem(node, depth) {
+    if (!node || depth <= 0) return null;
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const found = findFirstItem(item, depth - 1);
+        if (found) return found;
+      }
+      return null;
+    }
+    if (typeof node !== 'object') return null;
+
+    const looksLikeItem =
+      typeof node.name === 'string' &&
+      (typeof node.productPageUrl === 'string' || typeof node.canonicalUrl === 'string' || typeof node.usItemId === 'string');
+    if (looksLikeItem) return node;
+
+    for (const value of Object.values(node)) {
+      const found = findFirstItem(value, depth - 1);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  const item = findFirstItem(data, 20);
+  if (!item) return buildFallbackSellerListing('Walmart', productName);
+
+  const rawUrl = item.productPageUrl || item.canonicalUrl || (item.usItemId ? `/ip/${item.usItemId}` : null);
+  const url = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `https://www.walmart.com${rawUrl}`) : null;
+  const price =
+    item.priceInfo?.currentPrice?.price ??
+    item.primaryOffer?.offerPrice ??
+    item.price ??
+    null;
+  const seller =
+    item.primaryOffer?.sellerName ||
+    item.sellerName ||
+    item.fulfillmentLabel ||
+    'Walmart seller';
+
+  return {
+    store: 'Walmart',
+    title: item.name,
+    seller,
+    price: typeof price === 'number' ? price : null,
+    url,
+    source: 'public_search',
+    note: 'Best-effort match from Walmart public search.',
+  };
+}
+
+async function fetchEbaySellerListing(productName) {
+  const query = normalizeQuery(productName);
+  if (!query) return buildFallbackSellerListing('eBay', productName);
+
+  const res = await fetch(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`);
+  if (!res.ok) return buildFallbackSellerListing('eBay', productName);
+
+  const html = await res.text();
+  const blockMatch = html.match(/<li[^>]*class="[^"]*s-item[^"]*"[\s\S]*?<\/li>/i);
+  if (!blockMatch) return buildFallbackSellerListing('eBay', productName);
+
+  const block = blockMatch[0];
+  const titleMatch = block.match(/s-item__title[^>]*>([\s\S]*?)<\/span>/i) || block.match(/s-item__title[^>]*>([\s\S]*?)<\/div>/i);
+  const priceMatch = block.match(/s-item__price[^>]*>\s*\$([\d,]+(?:\.\d{2})?)/i);
+  const urlMatch = block.match(/<a[^>]+class="[^"]*s-item__link[^"]*"[^>]+href="([^"]+)"/i);
+  const sellerMatch = block.match(/s-item__seller-info-text[^>]*>([\s\S]*?)<\/span>/i);
+
+  return {
+    store: 'eBay',
+    title: decodeHtmlEntities(titleMatch ? titleMatch[1].replace(/<[^>]+>/g, ' ') : productName),
+    seller: decodeHtmlEntities(sellerMatch ? sellerMatch[1].replace(/<[^>]+>/g, ' ') : 'Marketplace seller'),
+    price: priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) : null,
+    url: urlMatch ? decodeHtmlEntities(urlMatch[1]) : null,
+    source: 'public_search',
+    note: 'Best-effort match from eBay public search.',
+  };
+}
+
+async function fetchCrossSiteSellers(productName) {
+  const [walmart, ebay] = await Promise.all([
+    fetchWalmartSellerListing(productName).catch(() => buildFallbackSellerListing('Walmart', productName)),
+    fetchEbaySellerListing(productName).catch(() => buildFallbackSellerListing('eBay', productName)),
+  ]);
+
+  return { walmart, ebay };
+}
+
 async function fetchKeepaHistory(asin, days) {
   const { keepaApiKey } = await chrome.storage.local.get(['keepaApiKey']);
   if (!keepaApiKey) {
@@ -145,6 +304,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ points: [], source: 'mock', reason: 'request_failed' });
       });
 
+    return true;
+  }
+
+  if (message.type === 'FETCH_SELLER_HISTORY') {
+    const asin = String(message.asin || '').trim();
+    const days = Number.isFinite(message.days) ? Math.max(30, Math.min(365, message.days)) : 90;
+    if (!asin) {
+      sendResponse({ points: [], source: 'none', reason: 'missing_asin' });
+      return true;
+    }
+    const points = buildMockSellerHistory(asin, days);
+    sendResponse({ points, source: 'mock' });
+    return true;
+  }
+
+  if (message.type === 'FETCH_CROSS_SITE_SELLERS') {
+    const productName = normalizeQuery(message.productName || '');
+    fetchCrossSiteSellers(productName)
+      .then((result) => sendResponse(result))
+      .catch(() => sendResponse({
+        walmart: buildFallbackSellerListing('Walmart', productName),
+        ebay: buildFallbackSellerListing('eBay', productName),
+      }));
     return true;
   }
 

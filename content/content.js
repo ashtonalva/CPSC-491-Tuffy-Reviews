@@ -303,10 +303,67 @@
     return { current: parsePrice(currentRaw), original: parsePrice(originalRaw), currency: 'USD' };
   }
 
+  // ── Seller readers ────────────────────────────────────────────────────────
+
+  function readAmazonSellers() {
+    // Amazon lists offers with text like "New (23) from..."
+    const offersText =
+      qsText('#dynamic-aod-ingress-box .a-declarative') ||
+      qsText('#availabilityInsideBuyBox_feature_div') ||
+      qsText('#offerDisplayFeatureText') ||
+      '';
+    const countMatch = offersText.match(/(?:new|used)\s*\((\d+)\)/i) || offersText.match(/(\d+)\s+offers?/i);
+    const count = countMatch ? parseInt(countMatch[1], 10) : null;
+
+    const buybox =
+      qsText('#sellerProfileTriggerId') ||
+      qsText('#merchant-info a') ||
+      qsText('#merchant-info') ||
+      'Amazon';
+
+    return { count, buybox: buybox ? buybox.trim() : null };
+  }
+
+  function readWalmartSellers() {
+    let count = null;
+    let buybox = null;
+    const data = getWalmartNextData();
+    if (data) {
+      const offerSummary = findInObject(
+        data,
+        (o) => (typeof o.sellerCount === 'number' || typeof o.totalOfferCount === 'number' || typeof o.sellerName === 'string'),
+        20
+      );
+      if (offerSummary) {
+        count = offerSummary.sellerCount ?? offerSummary.totalOfferCount ?? null;
+        buybox = offerSummary.sellerName || offerSummary.sellerDisplayName || null;
+      }
+    }
+
+    if (!buybox) {
+      buybox =
+        qsText('[data-automation-id="sold-and-shipped-by"] a') ||
+        qsText('[data-testid="sold-and-shipped-by"] a') ||
+        qsText('[data-automation-id="sold-and-shipped-by"]');
+    }
+
+    return { count, buybox: buybox ? buybox.trim() : null };
+  }
+
+  function readEbaySellers() {
+    // eBay item page usually has one active seller.
+    const buybox =
+      qsText('[data-testid="ux-seller-section__item--seller"] a') ||
+      qsText('.x-sellercard-atf__info__about-seller a') ||
+      qsText('.x-sellercard-atf__info__about-seller');
+    return { count: 1, buybox: buybox ? buybox.trim() : 'eBay Seller' };
+  }
+
   // ── Dispatch ──────────────────────────────────────────────────────────────
 
   const REVIEW_READERS = { amazon: readAmazonReviews, walmart: readWalmartReviews, ebay: readEbayReviews };
   const PRICE_READERS  = { amazon: readAmazonPrice,   walmart: readWalmartPrice,   ebay: readEbayPrice };
+  const SELLER_READERS = { amazon: readAmazonSellers, walmart: readWalmartSellers, ebay: readEbaySellers };
 
   const retailer = getRetailer();
   if (!retailer) return;
@@ -346,6 +403,16 @@
         document.querySelector('.x-item-title__mainTitle');  // eBay
       const productName = nameEl ? nameEl.textContent.trim() : null;
       sendResponse({ retailer, asin, productName, url: window.location.href });
+      return true;
+    }
+    if (message.type === 'GET_SELLERS') {
+      try {
+        const reader = SELLER_READERS[retailer];
+        const sellerData = reader ? reader() : { count: null, buybox: null };
+        sendResponse({ retailer, url: window.location.href, ...sellerData });
+      } catch (_) {
+        sendResponse({ retailer, url: window.location.href, count: null, buybox: null });
+      }
       return true;
     }
   });

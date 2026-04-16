@@ -22,6 +22,7 @@
       panel.hidden = !on;
     });
     if (selectedTab === 'price')   loadPriceTab();
+    if (selectedTab === 'sellers') loadSellersTab();
     if (selectedTab === 'reviews') loadReviews();
     if (selectedTab === 'trust')   loadTrustTab();
   }
@@ -41,6 +42,22 @@
       } else {
         // Re-render with cached price + cached history points
         renderPriceTab(cachedCurrentPrice, cachedOriginalPrice, cachedHistoryPoints);
+      }
+    });
+  });
+
+  document.querySelectorAll('.seller-period-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.seller-period-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const sellersPanel = document.getElementById('panel-sellers');
+      const sellersTabVisible = !!sellersPanel && sellersPanel.classList.contains('active');
+      if (sellersTabVisible) {
+        loadSellersTab().catch(() => {
+          renderSellersTab(cachedSellerCount, cachedBuyBoxSeller, cachedSellerHistory);
+        });
+      } else {
+        renderSellersTab(cachedSellerCount, cachedBuyBoxSeller, cachedSellerHistory);
       }
     });
   });
@@ -655,9 +672,55 @@
 let cachedSellerCount   = null;
 let cachedBuyBoxSeller  = null;
 let cachedSellerHistory = null; // null = mock; array = real
+let cachedSellerCompare = null;
+
+function formatMaybePrice(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? `$${value.toFixed(2)}` : '--';
+}
+
+function sellerCompareRowHtml(entry) {
+  const seller = escapeHtml(entry?.seller || 'Unknown seller');
+  const note = escapeHtml(entry?.note || '');
+  const price = formatMaybePrice(entry?.price);
+  const store = escapeHtml(entry?.store || 'Store');
+  const url = entry?.url;
+  const action = url
+    ? `<a class="seller-compare-link" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open</a>`
+    : '<span class="seller-compare-link">N/A</span>';
+
+  return `
+    <div class="seller-compare-row">
+      <div class="seller-compare-store">${store}</div>
+      <div class="seller-compare-meta">
+        <div class="seller-compare-price">${price}</div>
+        <div class="seller-compare-seller">${seller}</div>
+        <div class="seller-compare-note">${note}</div>
+      </div>
+      <div>${action}</div>
+    </div>`;
+}
+
+function renderSellerCompare(currentRetailer, currentPrice, currentSeller, comparison) {
+  const list = document.getElementById('seller-compare-list');
+  if (!list) return;
+
+  const rows = [];
+  rows.push(sellerCompareRowHtml({
+    store: RETAILER_LABEL[currentRetailer] || 'Current',
+    seller: currentSeller || 'Current seller',
+    price: currentPrice,
+    url: null,
+    note: 'Current product page',
+  }));
+
+  if (comparison?.walmart) rows.push(sellerCompareRowHtml(comparison.walmart));
+  if (comparison?.ebay) rows.push(sellerCompareRowHtml(comparison.ebay));
+
+  list.innerHTML = rows.join('');
+}
 
 function renderSellersTab(sellerCount, buyBoxSeller, historyPoints) {
-  const days = getSelectedDays();
+  const days = getSelectedSellerDays();
   let points;
   const sourceNote = document.getElementById('seller-source-note');
   // 1 — Resolve real or mock data
@@ -667,7 +730,7 @@ function renderSellersTab(sellerCount, buyBoxSeller, historyPoints) {
     points = historyPoints.filter((p) => new Date(p.date) >= cutoff);
 
     if (sourceNote) {
-      sourceNote.textContent = `Seller history from Keepa · ${points.length} data points`;
+      sourceNote.textContent = `Seller history updates automatically · ${points.length} data points`;
       sourceNote.classList.remove('note-mock');
       sourceNote.classList.add('note-real');
     }
@@ -675,7 +738,7 @@ function renderSellersTab(sellerCount, buyBoxSeller, historyPoints) {
     points = mockSellerHistory(days, sellerCount);
 
     if (sourceNote) {
-      sourceNote.textContent = '⚠ Seller history is simulated — add a Keepa API key for real data.';
+      sourceNote.textContent = 'Seller history updates automatically.';
       sourceNote.classList.remove('note-real');
       sourceNote.classList.add('note-mock');
     }
@@ -688,15 +751,48 @@ function renderSellersTab(sellerCount, buyBoxSeller, historyPoints) {
   const lowest  = Math.min(...counts);
   const highest = Math.max(...counts);
   const average = counts.reduce((a, b) => a + b, 0) / counts.length;
+  const first = counts[0];
+  const last = counts[counts.length - 1];
+  const trendDelta = last - first;
+  const volatility = highest - lowest;
+  const pressure = computeCompetitionPressure(last, trendDelta, volatility);
   // 2 — Update DOM
   const el = (id) => document.getElementById(id);
 
-  if (el('seller-current')) el('seller-current').textContent = sellerCount ?? '--';
+  if (el('seller-current')) {
+    const countLabel = sellerCount != null ? `${sellerCount} sellers` : '-- sellers';
+    el('seller-current').textContent = countLabel;
+  }
   if (el('seller-buybox'))  el('seller-buybox').textContent  = buyBoxSeller ?? 'Unknown';
 
   if (el('seller-lowest'))  el('seller-lowest').textContent  = lowest;
   if (el('seller-average')) el('seller-average').textContent = average.toFixed(1);
   if (el('seller-highest')) el('seller-highest').textContent = highest;
+  if (el('seller-pressure-badge')) {
+    const badge = el('seller-pressure-badge');
+    badge.textContent = pressure.label;
+    badge.style.background = pressure.bg;
+    badge.style.color = pressure.fg;
+  }
+  if (el('seller-pressure-note')) {
+    const direction =
+      trendDelta > 0 ? `up ${trendDelta} vs period start`
+      : trendDelta < 0 ? `down ${Math.abs(trendDelta)} vs period start`
+      : 'flat vs period start';
+    el('seller-pressure-note').textContent =
+      `Current sellers: ${last}. Trend is ${direction}. Volatility range: ${lowest}-${highest}.`;
+  }
+  if (el('seller-pressure-breakdown')) {
+    const trendLine =
+      trendDelta >= 0
+        ? `Trend contribution: +${trendDelta} from period start (${first} -> ${last}).`
+        : `Trend contribution: ${trendDelta} from period start (${first} -> ${last}).`;
+    const scoreMeta = pressure.score;
+    const scoreBand = scoreMeta >= 6 ? 'High (>=6)' : scoreMeta >= 3 ? 'Medium (3-5)' : 'Low (0-2)';
+    el('seller-pressure-breakdown').textContent =
+      `Score inputs -> current count: ${last}, volatility span: ${volatility}, ${trendLine} ` +
+      `Composite pressure score is ${scoreMeta}, which maps to ${scoreBand}.`;
+  }
 
   drawSellerChart(points);
 }
@@ -741,8 +837,12 @@ async function loadSellersTab() {
 
   // 1 — Get seller info from page
   let sellerData = null;
+  let priceData = null;
   try {
     sellerData = await chrome.tabs.sendMessage(tab.id, { type: 'GET_SELLERS' });
+  } catch {}
+  try {
+    priceData = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRICE' });
   } catch {}
 
   cachedSellerCount  = sellerData?.count ?? null;
@@ -757,20 +857,132 @@ async function loadSellersTab() {
     pageInfo = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRODUCT_INFO' });
   } catch {}
 
+  renderSellerCompare(
+    sellerData?.retailer || pageInfo?.retailer,
+    priceData?.current ?? null,
+    cachedBuyBoxSeller,
+    cachedSellerCompare
+  );
+
   if (pageInfo?.asin) {
-    const days = getSelectedDays();
-    chrome.runtime.sendMessage(
-      { type: 'FETCH_SELLER_HISTORY', asin: pageInfo.asin, days },
-      (keepaResult) => {
-        if (keepaResult?.points?.length) {
-          cachedSellerHistory = keepaResult.points;
-          renderSellersTab(cachedSellerCount, cachedBuyBoxSeller, cachedSellerHistory);
-        }
-      }
+    const days = getSelectedSellerDays();
+    const historyResult = await sendRuntimeMessage({ type: 'FETCH_SELLER_HISTORY', asin: pageInfo.asin, days });
+    if (historyResult?.points?.length) {
+      cachedSellerHistory = historyResult.points;
+      renderSellersTab(cachedSellerCount, cachedBuyBoxSeller, cachedSellerHistory);
+    }
+  }
+
+  if (pageInfo?.productName) {
+    const compareResult = await sendRuntimeMessage({
+      type: 'FETCH_CROSS_SITE_SELLERS',
+      productName: pageInfo.productName,
+    });
+    cachedSellerCompare = compareResult;
+    renderSellerCompare(
+      sellerData?.retailer || pageInfo?.retailer,
+      priceData?.current ?? null,
+      cachedBuyBoxSeller,
+      cachedSellerCompare
     );
   }
 }
+
+function getSelectedSellerDays() {
+  const active = document.querySelector('.seller-period-btn.active');
+  return active ? parseInt(active.getAttribute('data-days'), 10) : 90;
+}
+
+function computeCompetitionPressure(currentCount, trendDelta, volatility) {
+  let score = 0;
+  // Base pressure from current competition level.
+  if (currentCount >= 10) score += 3;
+  else if (currentCount >= 6) score += 2;
+  else if (currentCount >= 3) score += 1;
+
+  // Increasing seller trend raises pressure, decreasing trend lowers pressure.
+  if (trendDelta >= 3) score += 2;
+  else if (trendDelta >= 1) score += 1;
+  else if (trendDelta <= -3) score -= 1;
+
+  // Volatility means less predictable seller landscape.
+  if (volatility >= 6) score += 2;
+  else if (volatility >= 3) score += 1;
+
+  if (score >= 6) {
+    return { label: 'High', bg: '#feecec', fg: '#991b1b', score };
+  }
+  if (score >= 3) {
+    return { label: 'Medium', bg: '#fef7e8', fg: '#92400e', score };
+  }
+  return { label: 'Low', bg: '#e9f8ef', fg: '#166534', score };
+}
   // ─── Chart ────────────────────────────────────────────────────────────────
+
+  function drawSellerChart(data) {
+    const canvas = document.getElementById('seller-chart');
+    if (!canvas || !data.length) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr  = window.devicePixelRatio || 1;
+    const W    = rect.width  || 296;
+    const H    = rect.height || 110;
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const PAD   = { top: 10, right: 12, bottom: 22, left: 30 };
+    const plotW = W - PAD.left - PAD.right;
+    const plotH = H - PAD.top  - PAD.bottom;
+    const values = data.map((d) => d.sellers);
+    const minV = Math.min(...values);
+    const maxV = Math.max(...values);
+    const range = maxV - minV || 1;
+    const yMin  = Math.max(0, Math.floor(minV - range * 0.2));
+    const yMax  = Math.ceil(maxV + range * 0.2);
+    const xOf = (i) => PAD.left + (i / (data.length - 1)) * plotW;
+    const yOf = (v) => PAD.top  + (1 - (v - yMin) / (yMax - yMin || 1)) * plotH;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 3; g += 1) {
+      const y = PAD.top + (g / 3) * plotH;
+      ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + plotW, y); ctx.stroke();
+    }
+
+    ctx.fillStyle = '#5c6370';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let g = 0; g <= 3; g += 1) {
+      const v = yMax - (g / 3) * (yMax - yMin);
+      ctx.fillText(String(Math.round(v)), PAD.left - 4, PAD.top + (g / 3) * plotH);
+    }
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    [0, Math.floor((data.length - 1) / 2), data.length - 1].forEach((i) => {
+      const d = new Date(data[i].date + 'T12:00:00');
+      ctx.fillText((d.getMonth() + 1) + '/' + d.getDate(), xOf(i), PAD.top + plotH + 5);
+    });
+
+    const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + plotH);
+    grad.addColorStop(0, 'rgba(26,122,60,0.18)');
+    grad.addColorStop(1, 'rgba(26,122,60,0.00)');
+    ctx.beginPath();
+    data.forEach((d, i) => { i === 0 ? ctx.moveTo(xOf(i), yOf(d.sellers)) : ctx.lineTo(xOf(i), yOf(d.sellers)); });
+    ctx.lineTo(xOf(data.length - 1), PAD.top + plotH);
+    ctx.lineTo(xOf(0), PAD.top + plotH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    data.forEach((d, i) => { i === 0 ? ctx.moveTo(xOf(i), yOf(d.sellers)) : ctx.lineTo(xOf(i), yOf(d.sellers)); });
+    ctx.strokeStyle = '#1a7a3c';
+    ctx.lineWidth = 1.75;
+    ctx.stroke();
+  }
 
   function drawPriceChart(data) {
     const canvas = document.getElementById('price-chart');

@@ -80,8 +80,56 @@
 
     <!-- Sellers -->
     <section id="panel-sellers" class="panel" role="tabpanel" aria-labelledby="tab-sellers" hidden>
-      <h2>Sellers</h2>
-      <p class="placeholder">Price comparison across Amazon, Walmart, and eBay will appear here.</p>
+      <div class="sellers-header">
+        <h2>Sellers</h2>
+        <span class="sellers-count-pill" id="seller-current">-- sellers</span>
+      </div>
+      <p class="sellers-subtitle">
+        Buy box seller: <span id="seller-buybox">Unknown</span>
+      </p>
+      <div class="seller-stats">
+        <div class="stat">
+          <span class="stat-label">Lowest</span>
+          <span class="stat-value" id="seller-lowest">--</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Average</span>
+          <span class="stat-value" id="seller-average">--</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Highest</span>
+          <span class="stat-value" id="seller-highest">--</span>
+        </div>
+      </div>
+      <div class="price-chart-wrap">
+        <canvas id="seller-chart" width="296" height="110" aria-label="Seller count history chart" role="img"></canvas>
+      </div>
+      <p class="price-source-note" id="seller-source-note">Seller history updates automatically.</p>
+      <div class="seller-pressure">
+        <span class="seller-pressure-label">Competition pressure</span>
+        <span class="seller-pressure-badge" id="seller-pressure-badge">--</span>
+      </div>
+      <p class="seller-pressure-note" id="seller-pressure-note">Trend details will appear once seller history is loaded.</p>
+      <details class="seller-pressure-details" id="seller-pressure-details">
+        <summary>How this is calculated</summary>
+        <p id="seller-pressure-breakdown">
+          Pressure combines current seller count, trend direction, and volatility over the selected period.
+        </p>
+      </details>
+      <div class="seller-compare">
+        <div class="seller-compare-header">Across stores</div>
+        <div id="seller-compare-list">
+          <p class="placeholder">Looking for matching offers on other sites…</p>
+        </div>
+      </div>
+      <div class="price-period">
+        <span class="period-label">Period</span>
+        <div class="period-btns">
+          <button type="button" class="seller-period-btn" data-days="30">30 days</button>
+          <button type="button" class="seller-period-btn active" data-days="90">90 days</button>
+          <button type="button" class="seller-period-btn" data-days="180">6 months</button>
+        </div>
+      </div>
     </section>
 
     <!-- Trust -->
