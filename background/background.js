@@ -1,9 +1,14 @@
 /**
  * Tuffy Reviews – Background service worker
- * Handles messages from popup/content, API orchestration, and caching (later).
+ * Handles:
+ * - mock cross-site reviews
+ * - backend /insights fetch for price tab
+ * - mock competitor price comparison for sellers tab
  */
 
-// ── Mock review generators ────────────────────────────────────────────────────
+const INSIGHTS_API_URL = 'https://1j22dbprfj.execute-api.us-east-2.amazonaws.com/dev/insights';
+
+// Mock review generators
 
 function mockWalmartReviews() {
   return [
@@ -25,248 +30,157 @@ function mockEbayReviews() {
   ];
 }
 
-// ── Keepa price history helpers ──────────────────────────────────────────────
+// Backend price fetch
 
-const KEEPA_EPOCH_MS = Date.UTC(2011, 0, 1, 0, 0, 0, 0);
-const KEEP_DOMAIN_ID_US = 1;
-
-function toKeepaDate(keepaMinutes) {
-  return new Date(KEEPA_EPOCH_MS + keepaMinutes * 60 * 1000);
-}
-
-function parseKeepaPriceCsv(csv) {
-  if (!Array.isArray(csv) || csv.length < 2) return [];
-
-  const points = [];
-  for (let i = 0; i < csv.length - 1; i += 2) {
-    const keepaMinutes = csv[i];
-    const cents = csv[i + 1];
-    if (!Number.isFinite(keepaMinutes) || !Number.isFinite(cents)) continue;
-    if (cents <= 0) continue;
-
-    points.push({
-      date: toKeepaDate(keepaMinutes),
-      price: cents / 100,
-    });
+async function fetchInsightsByAsin(asin) {
+  if (!asin) {
+    throw new Error('Missing ASIN');
   }
 
-  return points.sort((a, b) => a.date - b.date);
-}
-
-function collapseDaily(points) {
-  if (!points.length) return [];
-
-  const byDay = new Map();
-  points.forEach((point) => {
-    const day = point.date.toISOString().slice(0, 10);
-    byDay.set(day, {
-      date: day,
-      price: Math.round(point.price * 100) / 100,
-    });
+  const response = await fetch(INSIGHTS_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      retailer: 'amazon',
+      productId: asin,
+    }),
   });
-
-  return Array.from(byDay.values()).sort((a, b) => a.date.localeCompare(b.date));
-}
-
-function keepRecentDays(points, days) {
-  if (!points.length) return [];
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  return points.filter((p) => new Date(p.date) >= cutoff);
-}
-
-function hashStringToInt(input) {
-  let h = 0;
-  for (let i = 0; i < input.length; i += 1) {
-    h = ((h << 5) - h) + input.charCodeAt(i);
-    h |= 0;
-  }
-  return Math.abs(h);
-}
-
-function buildMockSellerHistory(asin, days) {
-  const seed = hashStringToInt(asin || 'tuffy');
-  const base = 2 + (seed % 8);
-  const now = new Date();
-  const out = [];
-
-  for (let i = days; i >= 0; i -= 1) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const wave = Math.sin((i / Math.max(days, 1)) * Math.PI * 2) * 1.4;
-    const drift = ((seed + i) % 5) - 2;
-    const sellers = Math.max(1, Math.round(base + wave + drift * 0.25));
-    out.push({ date: d.toISOString().split('T')[0], sellers });
-  }
-
-  return out;
-}
-
-function decodeHtmlEntities(text) {
-  return String(text || '')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function normalizeQuery(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function buildFallbackSellerListing(store, productName) {
-  return {
-    store,
-    title: productName || `${store} listing`,
-    seller: store === 'eBay' ? 'Marketplace seller' : `${store} seller`,
-    price: null,
-    url: null,
-    source: 'fallback',
-    note: 'Free public lookup could not confirm a matching offer.',
-  };
-}
-
-async function fetchWalmartSellerListing(productName) {
-  const query = normalizeQuery(productName);
-  if (!query) return buildFallbackSellerListing('Walmart', productName);
-
-  const res = await fetch(`https://www.walmart.com/search?q=${encodeURIComponent(query)}`);
-  if (!res.ok) return buildFallbackSellerListing('Walmart', productName);
-
-  const html = await res.text();
-  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-  if (!nextDataMatch) return buildFallbackSellerListing('Walmart', productName);
 
   let data = null;
   try {
-    data = JSON.parse(nextDataMatch[1]);
+    data = await response.json();
   } catch (_) {
-    return buildFallbackSellerListing('Walmart', productName);
+    throw new Error(`API returned non-JSON response (${response.status})`);
   }
 
-  function findFirstItem(node, depth) {
-    if (!node || depth <= 0) return null;
-    if (Array.isArray(node)) {
-      for (const item of node) {
-        const found = findFirstItem(item, depth - 1);
-        if (found) return found;
-      }
-      return null;
+  if (!response.ok) {
+    throw new Error(data?.error || `API request failed (${response.status})`);
+  }
+
+  if (!data?.meta?.ok) {
+    throw new Error(data?.error || 'Insights API returned an unsuccessful response');
+  }
+
+  return data;
+}
+
+// Sellers-tab mock comparison helpers
+
+function hashString(input) {
+  const str = String(input || '');
+  let hash = 0;
+
+  for (let i = 0; i < str.length; i += 1) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+
+  return Math.abs(hash);
+}
+
+function roundMoney(value) {
+  return Math.round(Number(value) * 100) / 100;
+}
+
+function formatMoney(value) {
+  if (value == null || Number.isNaN(value)) return '$--';
+  return `$${Number(value).toFixed(2)}`;
+}
+
+function buildRetailerUrl(retailer, asin, productName) {
+  const query = encodeURIComponent(productName || '');
+
+  if (retailer === 'amazon') {
+    if (asin) {
+      return `https://www.amazon.com/dp/${encodeURIComponent(asin)}`;
     }
-    if (typeof node !== 'object') return null;
-
-    const looksLikeItem =
-      typeof node.name === 'string' &&
-      (typeof node.productPageUrl === 'string' || typeof node.canonicalUrl === 'string' || typeof node.usItemId === 'string');
-    if (looksLikeItem) return node;
-
-    for (const value of Object.values(node)) {
-      const found = findFirstItem(value, depth - 1);
-      if (found) return found;
-    }
-    return null;
+    return query ? `https://www.amazon.com/s?k=${query}` : null;
   }
 
-  const item = findFirstItem(data, 20);
-  if (!item) return buildFallbackSellerListing('Walmart', productName);
-
-  const rawUrl = item.productPageUrl || item.canonicalUrl || (item.usItemId ? `/ip/${item.usItemId}` : null);
-  const url = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `https://www.walmart.com${rawUrl}`) : null;
-  const price =
-    item.priceInfo?.currentPrice?.price ??
-    item.primaryOffer?.offerPrice ??
-    item.price ??
-    null;
-  const seller =
-    item.primaryOffer?.sellerName ||
-    item.sellerName ||
-    item.fulfillmentLabel ||
-    'Walmart seller';
-
-  return {
-    store: 'Walmart',
-    title: item.name,
-    seller,
-    price: typeof price === 'number' ? price : null,
-    url,
-    source: 'public_search',
-    note: 'Best-effort match from Walmart public search.',
-  };
-}
-
-async function fetchEbaySellerListing(productName) {
-  const query = normalizeQuery(productName);
-  if (!query) return buildFallbackSellerListing('eBay', productName);
-
-  const res = await fetch(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`);
-  if (!res.ok) return buildFallbackSellerListing('eBay', productName);
-
-  const html = await res.text();
-  const blockMatch = html.match(/<li[^>]*class="[^"]*s-item[^"]*"[\s\S]*?<\/li>/i);
-  if (!blockMatch) return buildFallbackSellerListing('eBay', productName);
-
-  const block = blockMatch[0];
-  const titleMatch = block.match(/s-item__title[^>]*>([\s\S]*?)<\/span>/i) || block.match(/s-item__title[^>]*>([\s\S]*?)<\/div>/i);
-  const priceMatch = block.match(/s-item__price[^>]*>\s*\$([\d,]+(?:\.\d{2})?)/i);
-  const urlMatch = block.match(/<a[^>]+class="[^"]*s-item__link[^"]*"[^>]+href="([^"]+)"/i);
-  const sellerMatch = block.match(/s-item__seller-info-text[^>]*>([\s\S]*?)<\/span>/i);
-
-  return {
-    store: 'eBay',
-    title: decodeHtmlEntities(titleMatch ? titleMatch[1].replace(/<[^>]+>/g, ' ') : productName),
-    seller: decodeHtmlEntities(sellerMatch ? sellerMatch[1].replace(/<[^>]+>/g, ' ') : 'Marketplace seller'),
-    price: priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) : null,
-    url: urlMatch ? decodeHtmlEntities(urlMatch[1]) : null,
-    source: 'public_search',
-    note: 'Best-effort match from eBay public search.',
-  };
-}
-
-async function fetchCrossSiteSellers(productName) {
-  const [walmart, ebay] = await Promise.all([
-    fetchWalmartSellerListing(productName).catch(() => buildFallbackSellerListing('Walmart', productName)),
-    fetchEbaySellerListing(productName).catch(() => buildFallbackSellerListing('eBay', productName)),
-  ]);
-
-  return { walmart, ebay };
-}
-
-async function fetchKeepaHistory(asin, days) {
-  const { keepaApiKey } = await chrome.storage.local.get(['keepaApiKey']);
-  if (!keepaApiKey) {
-    return { ok: false, reason: 'missing_key', points: [] };
+  if (retailer === 'walmart') {
+    return query ? `https://www.walmart.com/search?q=${query}` : 'https://www.walmart.com/';
   }
 
-  const query = new URLSearchParams({
-    key: keepaApiKey,
-    domain: String(KEEP_DOMAIN_ID_US),
-    asin,
-    history: '1',
+  if (retailer === 'ebay') {
+    return query ? `https://www.ebay.com/sch/i.html?_nkw=${query}` : 'https://www.ebay.com/';
+  }
+
+  return null;
+}
+
+function buildMockRetailerComparison({ retailer, productName, asin, currentPrice }) {
+  const base = Number(currentPrice) || 29.99;
+  const seed = hashString(`${retailer}|${productName}|${asin}|${base}`);
+
+  const amazonOffset = ((seed % 300) - 150) / 100;
+  const walmartOffset = (((seed >> 3) % 500) - 250) / 100;
+  const ebayOffset = (((seed >> 5) % 700) - 350) / 100;
+
+  const prices = {
+    amazon: retailer === 'amazon' ? base : roundMoney(Math.max(1, base + amazonOffset)),
+    walmart: retailer === 'walmart' ? base : roundMoney(Math.max(1, base + walmartOffset)),
+    ebay: retailer === 'ebay' ? base : roundMoney(Math.max(1, base + ebayOffset)),
+  };
+
+  const sellerNames = {
+    amazon: retailer === 'amazon' ? 'Current Amazon seller' : 'Estimated Amazon listing',
+    walmart: retailer === 'walmart' ? 'Current Walmart seller' : 'Estimated Walmart seller',
+    ebay: retailer === 'ebay' ? 'Current eBay seller' : 'Estimated eBay seller',
+  };
+
+  const retailers = ['amazon', 'walmart', 'ebay'].map((site) => ({
+    retailer: site,
+    label: site === 'amazon' ? 'Amazon' : site === 'walmart' ? 'Walmart' : 'eBay',
+    price: prices[site],
+    priceDisplay: formatMoney(prices[site]),
+    sellerName: sellerNames[site],
+    isCurrentRetailer: retailer === site,
+    source: retailer === site ? 'page' : 'mock',
+    url: buildRetailerUrl(site, asin, productName),
+  }));
+
+  const currentRow = retailers.find((r) => r.isCurrentRetailer) || null;
+
+  let bestRow = null;
+  retailers.forEach((row) => {
+    if (!bestRow || row.price < bestRow.price) bestRow = row;
   });
 
-  const res = await fetch(`https://api.keepa.com/product?${query.toString()}`);
-  if (!res.ok) {
-    return { ok: false, reason: `http_${res.status}`, points: [] };
-  }
+  retailers.forEach((row) => {
+    row.isBestPrice = row.retailer === bestRow?.retailer;
 
-  const data = await res.json();
-  if (!Array.isArray(data?.products) || !data.products.length) {
-    return { ok: false, reason: 'no_product', points: [] };
-  }
+    if (currentRow) {
+      row.differenceFromCurrent = roundMoney(row.price - currentRow.price);
+      row.differenceFromCurrentDisplay = formatMoney(Math.abs(row.differenceFromCurrent));
+      row.isCheaperThanCurrent = row.differenceFromCurrent < 0;
+      row.isMoreExpensiveThanCurrent = row.differenceFromCurrent > 0;
+    } else {
+      row.differenceFromCurrent = null;
+      row.differenceFromCurrentDisplay = null;
+      row.isCheaperThanCurrent = false;
+      row.isMoreExpensiveThanCurrent = false;
+    }
+  });
 
-  const product = data.products[0];
-  // Keepa index 1 is Amazon "new" offer history (in cents), interleaved [time,value,...].
-  const parsed = parseKeepaPriceCsv(product?.csv?.[1]);
-  const daily = collapseDaily(parsed);
-  const recent = keepRecentDays(daily, days);
-
-  return { ok: true, points: recent };
+  return {
+    ok: true,
+    productName: productName || null,
+    asin: asin || null,
+    currentRetailer: retailer || null,
+    bestRetailer: bestRow?.retailer || null,
+    bestPrice: bestRow?.price || null,
+    bestPriceDisplay: bestRow?.priceDisplay || '$--',
+    retailers,
+    meta: {
+      source: 'mock',
+      note: 'Cross-retailer comparison is currently mock/estimated except for the active page retailer.',
+    },
+  };
 }
 
-// ── Message handler ───────────────────────────────────────────────────────────
+// Message handler
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'PAGE_CONTEXT') {
@@ -275,60 +189,50 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'FETCH_CROSS_SITE') {
-    // TODO: replace with real Walmart/eBay API calls using message.productName / message.asin
     sendResponse({
       walmart: { reviews: mockWalmartReviews(), source: 'mock' },
-      ebay:    { reviews: mockEbayReviews(),    source: 'mock' },
+      ebay: { reviews: mockEbayReviews(), source: 'mock' },
     });
     return true;
   }
 
   if (message.type === 'FETCH_PRICE_HISTORY') {
-    const asin = String(message.asin || '').trim();
-    const days = Number.isFinite(message.days) ? Math.max(30, Math.min(365, message.days)) : 90;
+    (async () => {
+      try {
+        const data = await fetchInsightsByAsin(message.asin);
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        console.error('FETCH_PRICE_HISTORY failed:', err);
+        sendResponse({
+          ok: false,
+          error: err?.message || 'Unknown background fetch error',
+        });
+      }
+    })();
 
-    if (!asin) {
-      sendResponse({ points: [], source: 'none', reason: 'missing_asin' });
-      return true;
-    }
+    return true;
+  }
 
-    fetchKeepaHistory(asin, days)
-      .then((result) => {
-        if (result.ok) {
-          sendResponse({ points: result.points, source: 'keepa' });
-          return;
-        }
-        sendResponse({ points: [], source: 'mock', reason: result.reason });
-      })
-      .catch(() => {
-        sendResponse({ points: [], source: 'mock', reason: 'request_failed' });
+  if (message.type === 'FETCH_COMPETITOR_PRICES') {
+    try {
+      const comparison = buildMockRetailerComparison({
+        retailer: message.retailer,
+        productName: message.productName,
+        asin: message.asin,
+        currentPrice: message.currentPrice,
       });
 
-    return true;
-  }
-
-  if (message.type === 'FETCH_SELLER_HISTORY') {
-    const asin = String(message.asin || '').trim();
-    const days = Number.isFinite(message.days) ? Math.max(30, Math.min(365, message.days)) : 90;
-    if (!asin) {
-      sendResponse({ points: [], source: 'none', reason: 'missing_asin' });
-      return true;
+      sendResponse(comparison);
+    } catch (err) {
+      console.error('FETCH_COMPETITOR_PRICES failed:', err);
+      sendResponse({
+        ok: false,
+        error: err?.message || 'Failed to build competitor pricing',
+      });
     }
-    const points = buildMockSellerHistory(asin, days);
-    sendResponse({ points, source: 'mock' });
+
     return true;
   }
 
-  if (message.type === 'FETCH_CROSS_SITE_SELLERS') {
-    const productName = normalizeQuery(message.productName || '');
-    fetchCrossSiteSellers(productName)
-      .then((result) => sendResponse(result))
-      .catch(() => sendResponse({
-        walmart: buildFallbackSellerListing('Walmart', productName),
-        ebay: buildFallbackSellerListing('eBay', productName),
-      }));
-    return true;
-  }
-
-  return true; // keep channel open for async sendResponse
+  return true;
 });

@@ -21,13 +21,11 @@
 
   <main class="panel-container">
 
-    <!-- Reviews: split into current-site + cross-site sections -->
     <section id="panel-reviews" class="panel active" role="tabpanel" aria-labelledby="tab-reviews">
-      <!-- Current site reviews (Amazon/Walmart/eBay DOM) -->
       <div id="reviews-primary">
         <p class="placeholder">Loading reviews…</p>
       </div>
-      <!-- Cross-site reviews (fetched via background.js APIs) -->
+
       <div id="reviews-cross-site" style="display:none">
         <div class="cross-site-divider">
           <span>Also on other sites</span>
@@ -36,16 +34,17 @@
       </div>
     </section>
 
-    <!-- Price -->
     <section id="panel-price" class="panel" role="tabpanel" aria-labelledby="tab-price" hidden>
       <div class="price-current">
         <span class="price-label">Current price</span>
         <span class="price-value" id="current-price">$--</span>
       </div>
+
       <div class="price-original-row" id="original-price-row" style="display:none">
         <span class="price-label">List price</span>
         <span class="price-original" id="original-price"></span>
       </div>
+
       <div class="price-stats">
         <div class="stat">
           <span class="stat-label">Lowest</span>
@@ -60,14 +59,18 @@
           <span class="stat-value" id="price-highest">$--</span>
         </div>
       </div>
+
       <div class="price-chart-wrap">
         <canvas id="price-chart" width="296" height="110" aria-label="Price history chart" role="img"></canvas>
       </div>
-      <p class="price-source-note" id="price-source-note">Price history updates automatically.</p>
+
+      <p class="price-source-note" id="price-source-note">⚠ Price history is simulated — add a Keepa API key for real data.</p>
+
       <div class="price-savings">
         <span class="savings-label">vs. avg</span>
         <span class="savings-value" id="savings-value">--</span>
       </div>
+
       <div class="price-period">
         <span class="period-label">Period</span>
         <div class="period-btns">
@@ -78,108 +81,57 @@
       </div>
     </section>
 
-    <!-- Sellers -->
     <section id="panel-sellers" class="panel" role="tabpanel" aria-labelledby="tab-sellers" hidden>
-      <div class="sellers-header">
-        <h2>Sellers</h2>
-        <span class="sellers-count-pill" id="seller-current">-- sellers</span>
+      <div class="seller-header">
+        <div>
+          <div class="seller-title">Retailer comparison</div>
+          <div class="seller-subtitle" id="seller-current-retailer">Current site: --</div>
+        </div>
+        <div class="seller-best-badge" id="seller-best-badge">Best price: --</div>
       </div>
-      <p class="sellers-subtitle">
-        Buy box seller: <span id="seller-buybox">Unknown</span>
-      </p>
-      <div class="seller-stats">
-        <div class="stat">
-          <span class="stat-label">Lowest</span>
-          <span class="stat-value" id="seller-lowest">--</span>
+
+      <div class="seller-summary">
+        <div class="seller-summary-item">
+          <span class="seller-summary-label">Current page price</span>
+          <span class="seller-summary-value" id="seller-current-page-price">$--</span>
         </div>
-        <div class="stat">
-          <span class="stat-label">Average</span>
-          <span class="stat-value" id="seller-average">--</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Highest</span>
-          <span class="stat-value" id="seller-highest">--</span>
+        <div class="seller-summary-item">
+          <span class="seller-summary-label">Lowest found</span>
+          <span class="seller-summary-value" id="seller-lowest-found">$--</span>
         </div>
       </div>
-      <div class="price-chart-wrap">
-        <canvas id="seller-chart" width="296" height="110" aria-label="Seller count history chart" role="img"></canvas>
+
+      <div class="seller-source-note" id="seller-source-note">
+        Cross-retailer comparison is currently mock/estimated except for the active page retailer.
       </div>
-      <p class="price-source-note" id="seller-source-note">Seller history updates automatically.</p>
-      <div class="seller-pressure">
-        <span class="seller-pressure-label">Competition pressure</span>
-        <span class="seller-pressure-badge" id="seller-pressure-badge">--</span>
-      </div>
-      <p class="seller-pressure-note" id="seller-pressure-note">Trend details will appear once seller history is loaded.</p>
-      <details class="seller-pressure-details" id="seller-pressure-details">
-        <summary>How this is calculated</summary>
-        <p id="seller-pressure-breakdown">
-          Pressure combines current seller count, trend direction, and volatility over the selected period.
-        </p>
-      </details>
-      <div class="seller-compare">
-        <div class="seller-compare-header">Across stores</div>
-        <div id="seller-compare-list">
-          <p class="placeholder">Looking for matching offers on other sites…</p>
-        </div>
-      </div>
-      <div class="price-period">
-        <span class="period-label">Period</span>
-        <div class="period-btns">
-          <button type="button" class="seller-period-btn" data-days="30">30 days</button>
-          <button type="button" class="seller-period-btn active" data-days="90">90 days</button>
-          <button type="button" class="seller-period-btn" data-days="180">6 months</button>
-        </div>
+
+      <div class="seller-list" id="seller-list">
+        <p class="placeholder">Loading seller comparison…</p>
       </div>
     </section>
 
-    <!-- Trust -->
     <section id="panel-trust" class="panel" role="tabpanel" aria-labelledby="tab-trust" hidden>
-      <div class="trust-header">
-        <div>
-          <h2 class="trust-title">Trust Score</h2>
-          <p class="trust-subtitle" id="trust-retailer-label">Analyzing this product page…</p>
+      <div class="trust-hero">
+        <div class="trust-score-wrap">
+          <div class="trust-score-label">Trust score</div>
+          <div class="trust-score-value" id="trust-score">--</div>
+          <div class="trust-score-badge" id="trust-badge">Not loaded</div>
         </div>
-        <div class="trust-score-badge" id="trust-score-badge">--</div>
-      </div>
 
-      <div class="trust-band-wrap">
-        <div class="trust-band-track">
-          <div class="trust-band-fill" id="trust-band-fill" style="width:0%"></div>
-        </div>
-      </div>
-
-      <div class="trust-pill-row" id="trust-pill-row">
-        <span class="trust-pill">No data yet</span>
-      </div>
-
-      <div class="trust-grid">
-        <div class="trust-card">
-          <span class="trust-card-label">Avg rating</span>
-          <span class="trust-card-value" id="trust-avg-rating">--</span>
-        </div>
-        <div class="trust-card">
-          <span class="trust-card-label">Verified</span>
-          <span class="trust-card-value" id="trust-verified-rate">--</span>
-        </div>
-        <div class="trust-card">
-          <span class="trust-card-label">Low ratings</span>
-          <span class="trust-card-value" id="trust-low-rate">--</span>
+        <div class="trust-summary">
+          <div class="trust-summary-title">How this score is calculated</div>
+          <p class="trust-summary-text" id="trust-summary-text">
+            We combine seller quality, price fairness, price stability, and listing confidence.
+          </p>
         </div>
       </div>
 
-      <div class="trust-section">
-        <h3 class="trust-section-title">Risk flags</h3>
-        <div class="trust-flag-row" id="trust-flag-row">
-          <span class="trust-flag trust-flag-neutral">No risk analysis yet</span>
-        </div>
-        <p class="trust-flag-detail" id="trust-flag-detail">Tap a risk flag to see details.</p>
+      <div class="trust-note" id="trust-note">
+        Waiting for backend trust data…
       </div>
 
-      <div class="trust-section trust-section-gap">
-        <h3 class="trust-section-title">Why this score</h3>
-        <ul class="trust-list" id="trust-reasons">
-          <li>Open this tab on a supported product page.</li>
-        </ul>
+      <div class="trust-breakdown" id="trust-breakdown">
+        <p class="placeholder">Trust breakdown will appear here.</p>
       </div>
     </section>
 

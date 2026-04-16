@@ -11,7 +11,8 @@
   "host_permissions": [
     "https://www.amazon.com/*",
     "https://www.walmart.com/*",
-    "https://www.ebay.com/*"
+    "https://www.ebay.com/*",
+    "https://1j22dbprfj.execute-api.us-east-2.amazonaws.com/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",
