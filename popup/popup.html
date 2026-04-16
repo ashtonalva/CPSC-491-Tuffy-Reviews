@@ -56,6 +56,7 @@
       </nav>
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   <main class="panel-container">
     <section id="panel-reviews" class="panel active" role="tabpanel" aria-labelledby="tab-reviews">
       <h2>Reviews</h2>
@@ -77,12 +78,16 @@
 =======
       <main class="panel-container">
          <!-- Reviews: populated dynamically by popup.js → loadReviews() -->
+=======
+      <main class="panel-container">
+>>>>>>> Stashed changes
          <section
             id="panel-reviews"
             class="panel active"
             role="tabpanel"
             aria-labelledby="tab-reviews"
          >
+<<<<<<< Updated upstream
             <p class="placeholder">Loading reviews…</p>
          </section>
 >>>>>>> Stashed changes
@@ -181,6 +186,141 @@
          </section>
 
          <!-- Trust -->
+=======
+            <div id="reviews-primary">
+               <p class="placeholder">Loading reviews…</p>
+            </div>
+
+            <div id="reviews-cross-site" style="display: none">
+               <div class="cross-site-divider">
+                  <span>Also on other sites</span>
+               </div>
+               <div id="reviews-cross-site-content"></div>
+            </div>
+         </section>
+
+         <section
+            id="panel-price"
+            class="panel"
+            role="tabpanel"
+            aria-labelledby="tab-price"
+            hidden
+         >
+            <div class="price-current">
+               <span class="price-label">Current price</span>
+               <span class="price-value" id="current-price">$--</span>
+            </div>
+
+            <div
+               class="price-original-row"
+               id="original-price-row"
+               style="display: none"
+            >
+               <span class="price-label">List price</span>
+               <span class="price-original" id="original-price"></span>
+            </div>
+
+            <div class="price-stats">
+               <div class="stat">
+                  <span class="stat-label">Lowest</span>
+                  <span class="stat-value" id="price-lowest">$--</span>
+               </div>
+               <div class="stat">
+                  <span class="stat-label">Average</span>
+                  <span class="stat-value" id="price-average">$--</span>
+               </div>
+               <div class="stat">
+                  <span class="stat-label">Highest</span>
+                  <span class="stat-value" id="price-highest">$--</span>
+               </div>
+            </div>
+
+            <div class="price-chart-wrap">
+               <canvas
+                  id="price-chart"
+                  width="296"
+                  height="110"
+                  aria-label="Price history chart"
+                  role="img"
+               ></canvas>
+            </div>
+
+            <p class="price-source-note" id="price-source-note">
+               ⚠ Price history is simulated — add a Keepa API key for real data.
+            </p>
+
+            <div class="price-savings">
+               <span class="savings-label">vs. avg</span>
+               <span class="savings-value" id="savings-value">--</span>
+            </div>
+
+            <div class="price-period">
+               <span class="period-label">Period</span>
+               <div class="period-btns">
+                  <button type="button" class="period-btn" data-days="30">
+                     30 days
+                  </button>
+                  <button
+                     type="button"
+                     class="period-btn active"
+                     data-days="90"
+                  >
+                     90 days
+                  </button>
+                  <button type="button" class="period-btn" data-days="180">
+                     6 months
+                  </button>
+               </div>
+            </div>
+         </section>
+
+         <section
+            id="panel-sellers"
+            class="panel"
+            role="tabpanel"
+            aria-labelledby="tab-sellers"
+            hidden
+         >
+            <div class="seller-header">
+               <div>
+                  <div class="seller-title">Retailer comparison</div>
+                  <div class="seller-subtitle" id="seller-current-retailer">
+                     Current site: --
+                  </div>
+               </div>
+               <div class="seller-best-badge" id="seller-best-badge">
+                  Best price: --
+               </div>
+            </div>
+
+            <div class="seller-summary">
+               <div class="seller-summary-item">
+                  <span class="seller-summary-label">Current page price</span>
+                  <span
+                     class="seller-summary-value"
+                     id="seller-current-page-price"
+                     >$--</span
+                  >
+               </div>
+               <div class="seller-summary-item">
+                  <span class="seller-summary-label">Lowest found</span>
+                  <span class="seller-summary-value" id="seller-lowest-found"
+                     >$--</span
+                  >
+               </div>
+            </div>
+
+            <div class="seller-source-note" id="seller-source-note">
+               Cross-retailer comparison is currently mock/estimated except for
+               the active page retailer.
+            </div>
+
+            <div class="seller-list" id="seller-list">
+               <p class="placeholder">Loading seller comparison…</p>
+            </div>
+         </section>
+
+>>>>>>> Stashed changes
          <section
             id="panel-trust"
             class="panel"
@@ -188,18 +328,52 @@
             aria-labelledby="tab-trust"
             hidden
          >
+<<<<<<< Updated upstream
             <h2>Trust</h2>
             <p class="placeholder">
                Trust score, rating breakdown, and review topic analysis will
                appear here.
             </p>
+=======
+            <div class="trust-hero">
+               <div class="trust-score-wrap">
+                  <div class="trust-score-label">Trust score</div>
+                  <div class="trust-score-value" id="trust-score">--</div>
+                  <div class="trust-score-badge" id="trust-badge">
+                     Not loaded
+                  </div>
+               </div>
+
+               <div class="trust-summary">
+                  <div class="trust-summary-title">
+                     How this score is calculated
+                  </div>
+                  <p class="trust-summary-text" id="trust-summary-text">
+                     We combine seller quality, price fairness, price stability,
+                     and listing confidence.
+                  </p>
+               </div>
+            </div>
+
+            <div class="trust-note" id="trust-note">
+               Waiting for backend trust data…
+            </div>
+
+            <div class="trust-breakdown" id="trust-breakdown">
+               <p class="placeholder">Trust breakdown will appear here.</p>
+            </div>
+>>>>>>> Stashed changes
          </section>
       </main>
 
       <footer class="footer">
          <p class="page-status">
+<<<<<<< Updated upstream
             Visit a product page on Amazon, Walmart, Target, or Best Buy to see
             insights.
+=======
+            Visit a product page on Amazon, Walmart, or eBay to see insights.
+>>>>>>> Stashed changes
          </p>
       </footer>
 
