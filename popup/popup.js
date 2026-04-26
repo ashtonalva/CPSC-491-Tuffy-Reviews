@@ -535,6 +535,11 @@
     const currentBadge = row.isCurrentRetailer ? '<span class="seller-site-badge">Current</span>' : '';
     const bestBadge = row.isBestPrice ? '<span class="seller-best-pill">Best price</span>' : '';
     const mockTag = row.source === 'mock' ? '<span class="seller-mock-tag">Estimated</span>' : '';
+    const sourceBadge = row.isCurrentRetailer
+      ? '<span class="seller-source-badge current">Current</span>'
+      : row.source === 'public'
+      ? '<span class="seller-source-badge live">Live</span>'
+      : '<span class="seller-source-badge estimated">Estimated</span>';
     const linkHtml = row.url
       ? `<a class="seller-link" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">Open listing</a>`
       : '';
@@ -553,6 +558,10 @@
           <div class="seller-meta-row">
             <span class="seller-meta-label">Seller</span>
             <span class="seller-meta-value">${escapeHtml(row.sellerName || 'Unknown')}</span>
+          </div>
+          <div class="seller-meta-row">
+            <span class="seller-meta-label">Source</span>
+            <span class="seller-meta-value">${sourceBadge}</span>
           </div>
           <div class="seller-diff ${diffClass}">${comparisonDiffText(row)}</div>
           <div class="seller-actions">

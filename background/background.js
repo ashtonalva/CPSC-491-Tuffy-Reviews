@@ -89,6 +89,17 @@ function formatMoney(value) {
   return `$${Number(value).toFixed(2)}`;
 }
 
+function decodeHtmlEntities(text) {
+  return String(text || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function buildRetailerUrl(retailer, asin, productName) {
   const query = encodeURIComponent(productName || '');
 
@@ -110,7 +121,106 @@ function buildRetailerUrl(retailer, asin, productName) {
   return null;
 }
 
-function buildMockRetailerComparison({ retailer, productName, asin, currentPrice }) {
+function fallbackListing(retailerKey, productName, asin) {
+  const label = retailerKey === 'amazon' ? 'Amazon' : retailerKey === 'walmart' ? 'Walmart' : 'eBay';
+  return {
+    retailer: retailerKey,
+    label,
+    price: null,
+    sellerName: 'Unknown',
+    url: buildRetailerUrl(retailerKey, asin, productName),
+    source: 'fallback',
+  };
+}
+
+async function fetchWalmartPublicListing(productName) {
+  const query = String(productName || '').trim();
+  if (!query) return fallbackListing('walmart', productName, null);
+
+  const response = await fetch(`https://www.walmart.com/search?q=${encodeURIComponent(query)}`);
+  if (!response.ok) return fallbackListing('walmart', productName, null);
+
+  const html = await response.text();
+  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+  if (!nextDataMatch) return fallbackListing('walmart', productName, null);
+
+  let nextData = null;
+  try {
+    nextData = JSON.parse(nextDataMatch[1]);
+  } catch (_) {
+    return fallbackListing('walmart', productName, null);
+  }
+
+  function findFirstProduct(node, depth) {
+    if (!node || depth <= 0) return null;
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const found = findFirstProduct(item, depth - 1);
+        if (found) return found;
+      }
+      return null;
+    }
+    if (typeof node !== 'object') return null;
+
+    const looksLikeProduct =
+      typeof node.name === 'string' &&
+      (typeof node.productPageUrl === 'string' || typeof node.canonicalUrl === 'string' || typeof node.usItemId === 'string');
+    if (looksLikeProduct) return node;
+
+    for (const value of Object.values(node)) {
+      const found = findFirstProduct(value, depth - 1);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  const product = findFirstProduct(nextData, 24);
+  if (!product) return fallbackListing('walmart', productName, null);
+
+  const rawUrl = product.productPageUrl || product.canonicalUrl || (product.usItemId ? `/ip/${product.usItemId}` : null);
+  const url = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `https://www.walmart.com${rawUrl}`) : null;
+  const price =
+    product.priceInfo?.currentPrice?.price ??
+    product.primaryOffer?.offerPrice ??
+    product.price ??
+    null;
+
+  return {
+    retailer: 'walmart',
+    label: 'Walmart',
+    price: typeof price === 'number' ? roundMoney(price) : null,
+    sellerName: product.primaryOffer?.sellerName || product.sellerName || 'Walmart seller',
+    url,
+    source: 'public',
+  };
+}
+
+async function fetchEbayPublicListing(productName) {
+  const query = String(productName || '').trim();
+  if (!query) return fallbackListing('ebay', productName, null);
+
+  const response = await fetch(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`);
+  if (!response.ok) return fallbackListing('ebay', productName, null);
+
+  const html = await response.text();
+  const block = html.match(/<li[^>]*class="[^"]*s-item[^"]*"[\s\S]*?<\/li>/i)?.[0];
+  if (!block) return fallbackListing('ebay', productName, null);
+
+  const priceMatch = block.match(/s-item__price[^>]*>\s*\$([\d,]+(?:\.\d{2})?)/i);
+  const urlMatch = block.match(/<a[^>]+class="[^"]*s-item__link[^"]*"[^>]+href="([^"]+)"/i);
+  const sellerMatch = block.match(/s-item__seller-info-text[^>]*>([\s\S]*?)<\/span>/i);
+
+  return {
+    retailer: 'ebay',
+    label: 'eBay',
+    price: priceMatch ? roundMoney(parseFloat(priceMatch[1].replace(/,/g, ''))) : null,
+    sellerName: decodeHtmlEntities((sellerMatch?.[1] || 'Marketplace seller').replace(/<[^>]+>/g, ' ')),
+    url: urlMatch ? decodeHtmlEntities(urlMatch[1]) : buildRetailerUrl('ebay', null, productName),
+    source: 'public',
+  };
+}
+
+async function buildRetailerComparison({ retailer, productName, asin, currentPrice }) {
   const base = Number(currentPrice) || 29.99;
   const seed = hashString(`${retailer}|${productName}|${asin}|${base}`);
 
@@ -140,6 +250,33 @@ function buildMockRetailerComparison({ retailer, productName, asin, currentPrice
     source: retailer === site ? 'page' : 'mock',
     url: buildRetailerUrl(site, asin, productName),
   }));
+
+  // Free best-effort public lookups for non-current sites.
+  const [walmartLive, ebayLive] = await Promise.all([
+    retailer === 'walmart'
+      ? Promise.resolve(null)
+      : fetchWalmartPublicListing(productName).catch(() => null),
+    retailer === 'ebay'
+      ? Promise.resolve(null)
+      : fetchEbayPublicListing(productName).catch(() => null),
+  ]);
+
+  retailers.forEach((row) => {
+    if (row.retailer === 'walmart' && walmartLive?.price != null) {
+      row.price = walmartLive.price;
+      row.priceDisplay = formatMoney(walmartLive.price);
+      row.sellerName = walmartLive.sellerName || row.sellerName;
+      row.url = walmartLive.url || row.url;
+      row.source = walmartLive.source || row.source;
+    }
+    if (row.retailer === 'ebay' && ebayLive?.price != null) {
+      row.price = ebayLive.price;
+      row.priceDisplay = formatMoney(ebayLive.price);
+      row.sellerName = ebayLive.sellerName || row.sellerName;
+      row.url = ebayLive.url || row.url;
+      row.source = ebayLive.source || row.source;
+    }
+  });
 
   const currentRow = retailers.find((r) => r.isCurrentRetailer) || null;
 
@@ -174,8 +311,8 @@ function buildMockRetailerComparison({ retailer, productName, asin, currentPrice
     bestPriceDisplay: bestRow?.priceDisplay || '$--',
     retailers,
     meta: {
-      source: 'mock',
-      note: 'Cross-retailer comparison is currently mock/estimated except for the active page retailer.',
+      source: 'hybrid',
+      note: 'Current retailer is page-derived. Other retailers use free public lookup when available, with mock fallback.',
     },
   };
 }
@@ -214,23 +351,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'FETCH_COMPETITOR_PRICES') {
-    try {
-      const comparison = buildMockRetailerComparison({
-        retailer: message.retailer,
-        productName: message.productName,
-        asin: message.asin,
-        currentPrice: message.currentPrice,
-      });
-
-      sendResponse(comparison);
-    } catch (err) {
-      console.error('FETCH_COMPETITOR_PRICES failed:', err);
-      sendResponse({
-        ok: false,
-        error: err?.message || 'Failed to build competitor pricing',
-      });
-    }
-
+    (async () => {
+      try {
+        const comparison = await buildRetailerComparison({
+          retailer: message.retailer,
+          productName: message.productName,
+          asin: message.asin,
+          currentPrice: message.currentPrice,
+        });
+        sendResponse(comparison);
+      } catch (err) {
+        console.error('FETCH_COMPETITOR_PRICES failed:', err);
+        sendResponse({
+          ok: false,
+          error: err?.message || 'Failed to build competitor pricing',
+        });
+      }
+    })();
     return true;
   }
 

@@ -608,6 +608,30 @@ body {
   text-align: right;
 }
 
+.seller-source-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.seller-source-badge.current {
+  color: #1f2937;
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+.seller-source-badge.live {
+  color: #166534;
+  background: #e9f8ef;
+  border-color: #bbf7d0;
+}
+.seller-source-badge.estimated {
+  color: #92400e;
+  background: #fef7e8;
+  border-color: #fde68a;
+}
+
 .seller-diff {
   margin-top: 8px;
   font-size: 12px;
