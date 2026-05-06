@@ -6,17 +6,23 @@
   "permissions": [
     "activeTab",
     "storage",
-    "tabs"
+    "tabs",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://www.amazon.com/*",
     "https://www.walmart.com/*",
     "https://www.ebay.com/*",
+    "https://www.target.com/*",
+    "https://www.bestbuy.com/*",
+    "https://www.newegg.com/*",
     "https://1j22dbprfj.execute-api.us-east-2.amazonaws.com/*"
   ],
   "action": {
-    "default_popup": "popup/popup.html",
-    "default_title": "Tuffy Reviews"
+    "default_title": "Open Tuffy Reviews"
+  },
+  "side_panel": {
+    "default_path": "popup/popup.html"
   },
   "content_scripts": [
     {

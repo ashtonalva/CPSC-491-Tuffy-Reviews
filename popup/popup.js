@@ -43,6 +43,9 @@
     amazon: 'Amazon',
     walmart: 'Walmart',
     ebay: 'eBay',
+    target: 'Target',
+    bestbuy: 'Best Buy',
+    newegg: 'Newegg',
   };
 
   function fmt(n) {
@@ -517,6 +520,7 @@
 
   function comparisonDiffText(row) {
     if (row.isCurrentRetailer) return 'This is the current page retailer';
+    if (row.notFound) return 'Product not found on retailer search';
     if (row.differenceFromCurrent == null) return 'Difference unavailable';
     if (row.differenceFromCurrent < 0) return `${row.differenceFromCurrentDisplay} cheaper than current`;
     if (row.differenceFromCurrent > 0) return `${row.differenceFromCurrentDisplay} more than current`;
@@ -537,12 +541,15 @@
     const mockTag = row.source === 'mock' ? '<span class="seller-mock-tag">Estimated</span>' : '';
     const sourceBadge = row.isCurrentRetailer
       ? '<span class="seller-source-badge current">Current</span>'
+      : row.source === 'not_found'
+      ? '<span class="seller-source-badge not-found">Not found</span>'
       : row.source === 'public'
       ? '<span class="seller-source-badge live">Live</span>'
       : '<span class="seller-source-badge estimated">Estimated</span>';
-    const linkHtml = row.url
+    const linkHtml = row.url && !row.notFound
       ? `<a class="seller-link" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">Open listing</a>`
       : '';
+    const notFoundTag = row.notFound ? '<span class="seller-not-found">Product not found</span>' : '';
 
     return `
       <div class="seller-card ${row.isBestPrice ? 'best' : ''}">
@@ -567,6 +574,7 @@
           <div class="seller-actions">
             ${linkHtml}
             ${mockTag}
+            ${notFoundTag}
           </div>
         </div>
       </div>`;
