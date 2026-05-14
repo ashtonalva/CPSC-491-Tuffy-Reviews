@@ -320,7 +320,34 @@
         if (retailer === 'amazon') {
           reviewSummary = readAmazonCustomersSay();
         }
-        sendResponse({ retailer, url: window.location.href, reviews, reviewSummary });
+        sendResponse({
+          retailer,
+          url: window.location.href,
+          reviews,
+          reviewSummary,
+
+          reviewSignals: {
+            reviewCount: reviews.length,
+
+            verifiedCount: reviews.filter(r => r.verified).length,
+
+            averageVisibleRating:
+              reviews.length > 0
+                ? (
+                    reviews
+                      .filter(r => typeof r.rating === 'number')
+                      .reduce((sum, r) => sum + r.rating, 0) /
+                    reviews.filter(r => typeof r.rating === 'number').length
+                  ).toFixed(2)
+                : null,
+
+            recentReviewDates:
+              reviews
+                .map(r => r.date)
+                .filter(Boolean)
+                .slice(0, 5)
+          }
+        });
       } catch (_) {
         // Never break the popup if scraping fails; return empty data instead.
         sendResponse({ retailer, url: window.location.href, reviews: [], reviewSummary: null });
@@ -336,9 +363,14 @@
       return true;
     }
     if (message.type === 'GET_PRODUCT_INFO') {
-      // Extract ASIN from URL path
-      const asinMatch = window.location.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/);
-      const asin = asinMatch ? asinMatch[1] : null;
+      // Extract ASIN from common Amazon URL shapes and page fields.
+      const asinMatch = window.location.href.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i)
+        || window.location.href.match(/[?&]asin=([A-Z0-9]{10})(?:&|$)/i);
+      const asinFromUrl = asinMatch ? asinMatch[1].toUpperCase() : null;
+      const asinFromPage = document.getElementById('ASIN')?.value
+        || document.querySelector('input[name="ASIN"]')?.value
+        || document.querySelector('[data-asin]')?.getAttribute('data-asin');
+      const asin = (asinFromUrl || asinFromPage || '').toUpperCase() || null;
       // Product name: try retailer-specific selectors
       const nameEl =
         document.getElementById('productTitle') ||           // Amazon

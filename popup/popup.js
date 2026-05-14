@@ -9,6 +9,8 @@
 (function () {
   const tabs = document.querySelectorAll('.tab');
   const panels = document.querySelectorAll('.panel');
+  const loginBtn = document.getElementById('login-btn');
+  const authStatus = document.getElementById('auth-status');
 
   function switchTab(selectedTab) {
     tabs.forEach((tab) => {
@@ -32,7 +34,56 @@
   tabs.forEach((tab) => {
     tab.addEventListener('click', () => switchTab(tab.getAttribute('data-tab')));
   });
+  async function refreshAuthUi() {
+    const auth = await chrome.storage.local.get(['cognitoLoggedIn']);
 
+    if (auth?.cognitoLoggedIn) {
+      authStatus.textContent = 'Signed in';
+      loginBtn.textContent = 'Sign out';
+      loginBtn.disabled = false;
+    }
+    else {
+      authStatus.textContent = 'Not signed in';
+      loginBtn.textContent = 'Sign in';
+      loginBtn.disabled = false;
+    }
+  }
+
+  loginBtn?.addEventListener('click', async () => {
+    const auth = await chrome.storage.local.get(['cognitoLoggedIn']);
+
+    if (auth?.cognitoLoggedIn) {
+      await chrome.storage.local.remove([
+        'cognitoAccessToken',
+        'cognitoIdToken',
+        'cognitoRefreshToken',
+        'cognitoLoggedIn'
+      ]);
+
+      await refreshAuthUi();
+      return;
+    }
+
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Signing in...';
+
+    chrome.runtime.sendMessage(
+      { type: 'LOGIN' },
+      async (response) => {
+        if (chrome.runtime.lastError || !response?.ok) {
+          console.error(chrome.runtime.lastError || response?.error);
+          authStatus.textContent = 'Login failed';
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Sign in';
+          return;
+        }
+
+        await refreshAuthUi();
+      }
+    );
+  });
+
+refreshAuthUi();
   async function getActiveTab() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     return tab;
@@ -114,15 +165,6 @@
       </details>`;
   }
 
-  function reviewSummaryHtml(summaryText) {
-    const text = escapeHtml(summaryText || '');
-    return `
-      <div class="review-summary-block">
-        <div class="review-summary-title">Review Summary</div>
-        <div class="review-summary-text">${text}</div>
-      </div>`;
-  }
-
   function setPrimary(html) {
     const el = document.getElementById('reviews-primary');
     if (el) el.innerHTML = html;
@@ -149,8 +191,155 @@
     wrap.style.display = '';
   }
 
+  function reviewBadgeClass(badge) {
+    const value = String(badge || '').toLowerCase();
+    if (value === 'excellent') return 'excellent';
+    if (value === 'good') return 'good';
+    if (value === 'fair') return 'fair';
+    if (value === 'caution') return 'caution';
+    if (value === 'high risk') return 'high-risk';
+    if (value === 'limited data') return 'limited-data';
+    return '';
+  }
+
+  function formatNumber(value) {
+    if (value == null || Number.isNaN(Number(value))) return '--';
+    return Number(value).toLocaleString('en-US');
+  }
+
+  function reviewBreakdownCardHtml(item) {
+    const score = Math.max(0, Math.min(100, Number(item?.score || 0)));
+    const flags = Array.isArray(item?.riskFlags) ? item.riskFlags : [];
+    const flagsHtml = flags.length
+      ? `<div class="review-intel-flags">${flags.map((flag) => `<span>${escapeHtml(flag)}</span>`).join('')}</div>`
+      : '';
+
+    return `
+      <div class="review-intel-card">
+        <div class="review-intel-card-head">
+          <div class="review-intel-card-title">${escapeHtml(item?.label || 'Unknown')}</div>
+          <div class="review-intel-card-score">${score.toFixed(0)}/100</div>
+        </div>
+        <div class="trust-bar" aria-hidden="true">
+          <div class="trust-bar-fill" style="width: ${score}%;"></div>
+        </div>
+        <div class="review-intel-card-reason">${escapeHtml(item?.reason || 'No details available.')}</div>
+        ${flagsHtml}
+      </div>`;
+  }
+
+  function renderReviewIntelligence(data) {
+    const review = data?.reviewIntelligence || null;
+    const ai = data?.aiReviewSummary || null;
+
+    if (!review) {
+      setPrimary(`
+        <p class="placeholder">Review intelligence is not available for this product yet.</p>
+        <p class="placeholder" style="margin-top:6px;font-size:11px;">Open an Amazon product page and make sure the API route is deployed.</p>`);
+      return;
+    }
+
+    const score = Number(review.score || 0);
+    const badge = review.badge || 'Unknown';
+    const breakdown = Array.isArray(review.breakdown) ? review.breakdown : [];
+
+    const prosHtml = ai?.pros?.length
+      ? ai.pros.map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+      : '<li>No clear pros were available from the visible review data.</li>';
+
+    const consHtml = ai?.cons?.length
+      ? ai.cons.map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+      : '<li>No clear cons were available from the visible review data.</li>';
+
+    const fishyHtml = ai?.fishySignals?.length
+      ? ai.fishySignals.map((item) => `<li>${escapeHtml(item)}</li>`).join('')
+      : '<li>No major fishy review signals were found.</li>';
+
+    const basedOnHtml = ai?.basedOn?.length
+      ? ai.basedOn.map((item) => `<span>${escapeHtml(item)}</span>`).join('')
+      : '<span>Keepa review intelligence</span>';
+
+    setPrimary(`
+      <section class="review-intel-hero">
+        <div class="review-intel-score-wrap">
+          <div class="review-intel-score-label">Review reliability</div>
+          <div class="review-intel-score-value">${score.toFixed(0)}</div>
+          <div class="review-intel-score-badge ${reviewBadgeClass(badge)}">${escapeHtml(badge)}</div>
+        </div>
+
+        <div class="review-intel-summary">
+          <div class="review-intel-product">AI Review Summary</div>
+          <p>${escapeHtml(review.summary || 'Review reliability was calculated from Keepa rating, review, sales-rank, and listing history signals.')}</p>
+        </div>
+      </section>
+
+      <section class="review-ai-card">
+        <div class="review-ai-card-head">
+          <div>
+            <div class="review-ai-eyebrow">AI review verdict</div>
+            <div class="review-ai-verdict">${escapeHtml(ai?.verdict || 'Not enough data')}</div>
+          </div>
+          <div class="review-ai-confidence">${escapeHtml(ai?.confidence || 'Low')} confidence</div>
+        </div>
+
+        <p class="review-ai-summary">
+          ${escapeHtml(ai?.summary || 'AI summary is not available yet. Use the review reliability score and breakdown below for now.')}
+        </p>
+
+        <div class="review-ai-grid">
+          <div class="review-ai-list">
+            <div class="review-ai-list-title">Pros</div>
+            <ul>${prosHtml}</ul>
+          </div>
+
+          <div class="review-ai-list">
+            <div class="review-ai-list-title">Cons</div>
+            <ul>${consHtml}</ul>
+          </div>
+        </div>
+
+        <div class="review-ai-list review-ai-fishy">
+          <div class="review-ai-list-title">Fishy signals</div>
+          <ul>${fishyHtml}</ul>
+        </div>
+
+        <div class="review-ai-recommendation">
+          <strong>Recommendation:</strong>
+          ${escapeHtml(ai?.recommendation || 'Check the score breakdown before deciding.')}
+        </div>
+
+        <div class="review-ai-based-on">
+          ${basedOnHtml}
+        </div>
+      </section>
+
+      <div class="review-intel-section-title">Score breakdown</div>
+      <div class="review-intel-breakdown">
+        ${breakdown.length ? breakdown.map(reviewBreakdownCardHtml).join('') : '<p class="placeholder">No breakdown available.</p>'}
+      </div>
+    `);
+  }
+
+
+  function extractAmazonAsinFromUrl(url) {
+    const text = String(url || '');
+    const patterns = [
+      /\/dp\/([A-Z0-9]{10})(?:[/?#]|$)/i,
+      /\/gp\/product\/([A-Z0-9]{10})(?:[/?#]|$)/i,
+      /[?&]asin=([A-Z0-9]{10})(?:[&#]|$)/i,
+      /[?&]ASIN=([A-Z0-9]{10})(?:[&#]|$)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match?.[1]) return match[1].toUpperCase();
+    }
+
+    return null;
+  }
+
   async function loadReviews() {
-    setPrimary('<p class="placeholder">Loading reviews…</p>');
+    setPrimary('<p class="placeholder">Loading review intelligence…</p>');
     const crossSiteEl = document.getElementById('reviews-cross-site');
     if (crossSiteEl) crossSiteEl.style.display = 'none';
 
@@ -162,75 +351,9 @@
       return;
     }
 
-    if (!SUPPORTED.test(tab?.url || '')) {
-      setPrimary('<p class="placeholder">Visit a product page on Amazon, Walmart, or eBay to see reviews.</p>');
+    if (!/amazon\.com/.test(tab?.url || '')) {
+      setPrimary('<p class="placeholder">Review intelligence is currently available on Amazon product pages.</p>');
       return;
-    }
-
-    let primary;
-    try {
-      primary = await chrome.tabs.sendMessage(tab.id, { type: 'GET_REVIEWS' });
-    } catch {
-      setPrimary('<p class="placeholder">Could not read the page. Try refreshing and reopening the extension.</p>');
-      return;
-    }
-
-    const reviews = primary?.reviews || [];
-    const retailer = primary?.retailer;
-    const label = RETAILER_LABEL[retailer] || 'This site';
-    const reviewSummary = primary?.reviewSummary;
-    const summaryHtml = reviewSummary ? reviewSummaryHtml(reviewSummary) : '';
-
-    if (!reviews.length) {
-      setPrimary(`
-        ${summaryHtml}
-        <p class="placeholder">No reviews found on this page.</p>
-        <p class="placeholder" style="margin-top:6px;font-size:11px;">Make sure you're on a product detail page.</p>`);
-    } else {
-      setPrimary(`${summaryHtml}${sectionHtml(`Top reviews · ${label}`, reviews, 'api', true)}`);
-    }
-
-    if (retailer === 'amazon') {
-      let pageInfo;
-      try {
-        pageInfo = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRODUCT_INFO' });
-      } catch {
-        pageInfo = null;
-      }
-
-      if (pageInfo?.productName) {
-        chrome.runtime.sendMessage(
-          {
-            type: 'FETCH_CROSS_SITE',
-            asin: pageInfo.asin,
-            productName: pageInfo.productName,
-          },
-          (response) => {
-            if (response) setCrossSite(response.walmart, response.ebay);
-          }
-        );
-      }
-    }
-  }
-
-  // ─── Shared backend/cache state ──────────────────────────────────────────
-
-  let cachedCurrentPrice = null;
-  let cachedOriginalPrice = null;
-  let cachedPricePayload = null;
-  let cachedHistoryPoints = null;
-  let cachedSellerComparison = null;
-
-  async function fetchBackendInsightsForActivePage() {
-    let tab;
-    try {
-      tab = await getActiveTab();
-    } catch {
-      return null;
-    }
-
-    if (!SUPPORTED.test(tab?.url || '')) {
-      return null;
     }
 
     let pageInfo = null;
@@ -238,42 +361,116 @@
       pageInfo = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRODUCT_INFO' });
     } catch (_) {}
 
-    if (!pageInfo?.asin) {
-      return null;
+    const pageUrl = pageInfo?.url || tab.url || '';
+    const asin = pageInfo?.asin || extractAmazonAsinFromUrl(pageUrl);
+
+    if (!asin && !pageUrl) {
+      setPrimary(`
+        <p class="placeholder">Could not find an Amazon ASIN or URL on this page.</p>
+        <p class="placeholder" style="margin-top:6px;font-size:11px;">Make sure you are on a product detail page.</p>`);
+      return;
     }
 
-    return new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        {
-          type: 'FETCH_PRICE_HISTORY',
-          asin: pageInfo.asin,
-        },
-        (result) => {
-          if (chrome.runtime.lastError) {
-            console.warn('FETCH_PRICE_HISTORY runtime error:', chrome.runtime.lastError.message);
-            resolve(null);
-            return;
-          }
+    let reviewPageData = null;
+    try {
+      reviewPageData = await chrome.tabs.sendMessage(tab.id, {
+        type: 'GET_REVIEWS'
+      });
+    } catch (_) {}
 
-          if (!result?.ok || !result?.data) {
-            console.warn('FETCH_PRICE_HISTORY failed:', result?.error || 'Unknown error');
-            resolve(null);
-            return;
-          }
+    chrome.runtime.sendMessage(
+      {
+        type: 'FETCH_REVIEW_INTELLIGENCE',
+        asin,
+        productId: asin,
+        url: pageUrl,
 
-          cachedPricePayload = result.data;
-          cachedHistoryPoints = result.data?.price?.dailyHistory180d || null;
-
-          if (cachedCurrentPrice == null && result.data?.price?.current != null) {
-            cachedCurrentPrice = result.data.price.current;
-          }
-
-          resolve(result.data);
+        pageReviewContext: {
+          reviewSummary: reviewPageData?.reviewSummary || null,
+          reviewSignals: reviewPageData?.reviewSignals || null,
+          visibleReviews: reviewPageData?.reviews || []
         }
-      );
-    });
+      },
+      (result) => {
+        if (chrome.runtime.lastError) {
+          console.warn('FETCH_REVIEW_INTELLIGENCE runtime error:', chrome.runtime.lastError.message);
+          setPrimary('<p class="placeholder">Could not load review intelligence from the backend.</p>');
+          return;
+        }
+
+        if (!result?.ok || !result?.data) {
+          console.warn('FETCH_REVIEW_INTELLIGENCE failed:', result?.error || 'Unknown error');
+          setPrimary(`<p class="placeholder">Review intelligence failed: ${escapeHtml(result?.error || 'Unknown error')}</p>`);
+          return;
+        }
+
+        cachedReviewPayload = result.data;
+        renderReviewIntelligence(cachedReviewPayload);
+      }
+    );
   }
 
+// ─── Shared backend/cache state ──────────────────────────────────────────
+
+let cachedCurrentPrice = null;
+let cachedOriginalPrice = null;
+let cachedPricePayload = null;
+let cachedHistoryPoints = null;
+let cachedSellerComparison = null;
+let cachedReviewPayload = null;
+
+async function fetchBackendInsightsForActivePage() {
+  let tab;
+  try {
+    tab = await getActiveTab();
+  } catch {
+    return null;
+  }
+
+  if (!SUPPORTED.test(tab?.url || '')) {
+    return null;
+  }
+
+  let pageInfo = null;
+  try {
+    pageInfo = await chrome.tabs.sendMessage(tab.id, { type: 'GET_PRODUCT_INFO' });
+  } catch (_) {}
+
+  if (!pageInfo?.asin) {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(
+      {
+        type: 'FETCH_PRICE_HISTORY',
+        asin: pageInfo.asin,
+      },
+      (result) => {
+        if (chrome.runtime.lastError) {
+          console.warn('FETCH_PRICE_HISTORY runtime error:', chrome.runtime.lastError.message);
+          resolve(null);
+          return;
+        }
+
+        if (!result?.ok || !result?.data) {
+          console.warn('FETCH_PRICE_HISTORY failed:', result?.error || 'Unknown error');
+          resolve(null);
+          return;
+        }
+
+        cachedPricePayload = result.data;
+        cachedHistoryPoints = result.data?.price?.dailyHistory180d || null;
+
+        if (cachedCurrentPrice == null && result.data?.price?.current != null) {
+          cachedCurrentPrice = result.data.price.current;
+        }
+
+        resolve(result.data);
+      }
+    );
+  });
+}
   // ─── Price tab ───────────────────────────────────────────────────────────
 
   function getSelectedDays() {

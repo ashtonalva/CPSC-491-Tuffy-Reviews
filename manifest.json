@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Tuffy Reviews",
-  "version": "0.1.0",
-  "description": "Shopping assistant: aggregated reviews, price history, seller comparison, and trust scores on product pages.",
+  "version": "1.0.0",
+  "description": "Shopping assistant: review scoring, price history, seller comparison, and trust scores on product pages.",
   "permissions": [
-    "activeTab",
     "storage",
+    "identity",
     "tabs",
+    "activeTab",
     "sidePanel"
   ],
   "host_permissions": [
@@ -16,7 +17,8 @@
     "https://www.target.com/*",
     "https://www.bestbuy.com/*",
     "https://www.newegg.com/*",
-    "https://1j22dbprfj.execute-api.us-east-2.amazonaws.com/*"
+    "https://1j22dbprfj.execute-api.us-east-2.amazonaws.com/*",
+    "https://us-east-2tm2ugrdhm.auth.us-east-2.amazoncognito.com/*"
   ],
   "action": {
     "default_title": "Open Tuffy Reviews"

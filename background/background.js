@@ -20,6 +20,123 @@ const RETAILER_LABEL = {
   newegg: 'Newegg',
 };
 
+const COGNITO_DOMAIN =
+  'https://us-east-2tm2ugrdhm.auth.us-east-2.amazoncognito.com';
+
+const COGNITO_CLIENT_ID =
+  '3c80gv6ukt11t4fla3m3nfmrci';
+
+const COGNITO_REDIRECT_URI =
+  'https://fopdpifakfiemjehnkmefonnlcmlednb.chromiumapp.org/';
+
+const COGNITO_SCOPES =
+  'openid+email+profile';
+
+function base64UrlEncode(buffer) {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function randomPkceString(length = 64) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const values = new Uint8Array(length);
+  crypto.getRandomValues(values);
+
+  return Array.from(values)
+    .map((v) => chars[v % chars.length])
+    .join('');
+}
+
+async function sha256Base64Url(text) {
+  const data = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64UrlEncode(digest);
+}
+
+async function startCognitoLogin() {
+  const codeVerifier = randomPkceString();
+  const codeChallenge = await sha256Base64Url(codeVerifier);
+
+  const authUrl =
+    `${COGNITO_DOMAIN}/login` +
+    `?client_id=${encodeURIComponent(COGNITO_CLIENT_ID)}` +
+    `&response_type=code` +
+    `&scope=${COGNITO_SCOPES}` +
+    `&redirect_uri=${encodeURIComponent(COGNITO_REDIRECT_URI)}` +
+    `&code_challenge=${encodeURIComponent(codeChallenge)}` +
+    `&code_challenge_method=S256`;
+
+  return new Promise((resolve, reject) => {
+    chrome.identity.launchWebAuthFlow(
+      {
+        url: authUrl,
+        interactive: true
+      },
+      async (redirectUrl) => {
+        if (chrome.runtime.lastError) {
+          reject(chrome.runtime.lastError);
+          return;
+        }
+
+        if (!redirectUrl) {
+          reject(new Error('No redirect URL received'));
+          return;
+        }
+
+        try {
+          const redirected = new URL(redirectUrl);
+          const code = redirected.searchParams.get('code');
+
+          if (!code) {
+            throw new Error('Missing authorization code');
+          }
+
+          const tokenResponse = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: new URLSearchParams({
+              grant_type: 'authorization_code',
+              client_id: COGNITO_CLIENT_ID,
+              code,
+              redirect_uri: COGNITO_REDIRECT_URI,
+              code_verifier: codeVerifier
+            })
+          });
+
+          const tokenData = await tokenResponse.json();
+
+          if (!tokenResponse.ok) {
+            throw new Error(
+              tokenData?.error_description ||
+              tokenData?.error ||
+              'Token exchange failed'
+            );
+          }
+
+          if (!tokenData.id_token || !tokenData.access_token) {
+            throw new Error('Missing Cognito tokens from token response');
+          }
+
+          await chrome.storage.local.set({
+            cognitoAccessToken: tokenData.access_token,
+            cognitoIdToken: tokenData.id_token,
+            cognitoRefreshToken: tokenData.refresh_token || null,
+            cognitoLoggedIn: true
+          });
+
+          resolve({ ok: true });
+        } catch (err) {
+          reject(err);
+        }
+      }
+    );
+  });
+}
+
 function retailerLabel(key) {
   return RETAILER_LABEL[key] || key;
 }
@@ -37,29 +154,36 @@ function ensureSidePanelOnActionClick() {
 chrome.runtime.onInstalled.addListener(ensureSidePanelOnActionClick);
 ensureSidePanelOnActionClick();
 
-// Mock review generators
-
-function mockWalmartReviews() {
-  return [
-    { reviewer: 'Sandra M.', rating: 5, date: 'January 10, 2025', title: 'Exactly as described', body: 'Great product, shipped fast and arrived in perfect condition. Would buy again.', verified: true, source: 'mock' },
-    { reviewer: 'DaveInTexas', rating: 4, date: 'February 3, 2025', title: 'Good value', body: 'Works as expected. Nothing fancy, but does the job well for the price.', verified: true, source: 'mock' },
-    { reviewer: 'Priya K.', rating: 3, date: 'December 18, 2024', title: 'Decent but not great', body: 'Packaging was damaged on arrival but the item itself was fine.', verified: false, source: 'mock' },
-    { reviewer: 'Mike T.', rating: 5, date: 'March 1, 2025', title: 'Highly recommend', body: 'Bought this for my family and everyone loves it. Will definitely purchase again.', verified: true, source: 'mock' },
-    { reviewer: 'LisaW', rating: 4, date: 'November 22, 2024', title: 'Solid purchase', body: 'Quality feels good and it matches the photos. Delivery was on time.', verified: true, source: 'mock' },
-  ];
-}
-
-function mockEbayReviews() {
-  return [
-    { reviewer: 'top_rated_seller99', rating: 5, date: 'February 14, 2025', title: 'Fast shipping, item as described', body: 'Seller communicated well. Item arrived quickly and matched the listing exactly.', verified: true, source: 'mock' },
-    { reviewer: 'bargain_hunter_bob', rating: 4, date: 'January 29, 2025', title: 'Good deal', body: 'Got a better price here than anywhere else. Item is in great shape.', verified: true, source: 'mock' },
-    { reviewer: 'jenna_shops', rating: 3, date: 'March 5, 2025', title: 'OK, but took long', body: 'Item is fine but shipping took two weeks. Seller did respond to my messages.', verified: false, source: 'mock' },
-    { reviewer: 'tech_deals_2024', rating: 5, date: 'December 30, 2024', title: 'Perfect condition', body: 'Exactly as listed. Seller packed it well and it arrived without any damage.', verified: true, source: 'mock' },
-    { reviewer: 'maria_g_buys', rating: 4, date: 'February 20, 2025', title: 'Happy with purchase', body: 'Good seller, prompt shipping. Item works perfectly out of the box.', verified: true, source: 'mock' },
-  ];
-}
-
 // Backend price fetch
+async function getAuthHeaders() {
+  const auth = await chrome.storage.local.get([
+    'cognitoIdToken',
+    'cognitoLoggedIn'
+  ]);
+
+  if (!auth?.cognitoIdToken) {
+    throw new Error('Please sign in first.');
+  }
+
+  const payload = JSON.parse(atob(auth.cognitoIdToken.split('.')[1]));
+  const expiresAtMs = payload.exp * 1000;
+
+  if (Date.now() >= expiresAtMs) {
+    await chrome.storage.local.remove([
+      'cognitoAccessToken',
+      'cognitoIdToken',
+      'cognitoRefreshToken',
+      'cognitoLoggedIn'
+    ]);
+
+    throw new Error('Your session expired. Please sign in again.');
+  }
+
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${auth.cognitoIdToken}`
+  };
+}
 
 async function fetchInsightsByAsin(asin) {
   if (!asin) {
@@ -69,7 +193,7 @@ async function fetchInsightsByAsin(asin) {
   const response = await fetch(INSIGHTS_API_URL, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       retailer: 'amazon',
@@ -90,6 +214,52 @@ async function fetchInsightsByAsin(asin) {
 
   if (!data?.meta?.ok) {
     throw new Error(data?.error || 'Insights API returned an unsuccessful response');
+  }
+
+  return data;
+}
+
+async function fetchReviewIntelligence(payload) {
+  const reviewPayload = {
+    asin: payload.asin || payload.productId || null,
+    productId: payload.productId || payload.asin || null,
+    url: payload.url || null,
+    retailer: payload.retailer || "amazon",
+    pageReviewContext: payload.pageReviewContext || null
+  };
+
+
+  const response = await fetch(
+    "https://1j22dbprfj.execute-api.us-east-2.amazonaws.com/dev/tuffy-review-intelligence",
+    {
+      method: "POST",
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(reviewPayload)
+    }
+  );
+
+  const raw = await response.json();
+
+  let data = raw;
+  if (raw && typeof raw.body === "string") {
+    data = JSON.parse(raw.body);
+  }
+
+  if (!response.ok || data?.meta?.ok === false) {
+    console.error('Review API failed:', {
+      status: response.status,
+      statusText: response.statusText,
+      data
+    });
+
+    throw new Error(
+      data?.message ||
+      data?.error ||
+      data?.details ||
+      `Review API failed (${response.status})`
+    );
   }
 
   return data;
@@ -562,6 +732,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'LOGIN') {
+    (async () => {
+      try {
+        const result = await startCognitoLogin();
+
+        sendResponse({
+          ok: true,
+          ...result
+        });
+
+      } catch (err) {
+        console.error('LOGIN failed:', err);
+
+        sendResponse({
+          ok: false,
+          error: err?.message || 'Login failed'
+        });
+      }
+    })();
+
+    return true;
+  }
+
   if (message.type === 'FETCH_CROSS_SITE') {
     sendResponse({
       walmart: { reviews: mockWalmartReviews(), source: 'mock' },
@@ -587,6 +780,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'FETCH_REVIEW_INTELLIGENCE') {
+    (async () => {
+      try {
+        const data = await fetchReviewIntelligence(message);
+        sendResponse({ ok: true, data });
+      } catch (err) {
+        console.error('FETCH_REVIEW_INTELLIGENCE failed:', err);
+        sendResponse({
+          ok: false,
+          error: err?.message || 'Unknown review intelligence fetch error',
+        });
+      }
+    })();
+
+    return true;
+  }
+
   if (message.type === 'FETCH_COMPETITOR_PRICES') {
     (async () => {
       try {
@@ -605,6 +815,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         });
       }
     })();
+
     return true;
   }
 
